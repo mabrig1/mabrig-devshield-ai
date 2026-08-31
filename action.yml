@@ -1,0 +1,59 @@
+name: 'MABRIG DevShield AI'
+description: 'Security-first pull request review with deterministic checks and optional AI analysis.'
+author: 'MABRIG Digital Media'
+inputs:
+  github-token:
+    description: 'GitHub token used to comment on pull requests.'
+    required: false
+    default: ''
+  openrouter-api-key:
+    description: 'Optional OpenRouter key for AI-assisted review. Leave blank for deterministic-only mode.'
+    required: false
+    default: ''
+  model:
+    description: 'OpenRouter model slug.'
+    required: false
+    default: 'openrouter/auto'
+  fail-on:
+    description: 'Fail at or above: critical, high, medium, low, none.'
+    required: false
+    default: 'critical'
+  comment:
+    description: 'Post or update a PR comment when running on pull_request.'
+    required: false
+    default: 'true'
+  max-files:
+    description: 'Maximum changed text files to scan.'
+    required: false
+    default: '80'
+  exclude-paths:
+    description: 'Comma-separated path globs to exclude, for example test/**,fixtures/**.'
+    required: false
+    default: ''
+outputs:
+  findings-count:
+    description: 'Total number of deterministic findings.'
+    value: ${{ steps.devshield.outputs.findings-count }}
+  risk-score:
+    description: 'Risk score from 0 to 100.'
+    value: ${{ steps.devshield.outputs.risk-score }}
+  risk-level:
+    description: 'Risk level: low, medium, high, or critical.'
+    value: ${{ steps.devshield.outputs.risk-level }}
+runs:
+  using: 'composite'
+  steps:
+    - id: devshield
+      shell: bash
+      env:
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_COMMENT: ${{ inputs.comment }}
+        INPUT_MAX_FILES: ${{ inputs.max-files }}
+        INPUT_EXCLUDE_PATHS: ${{ inputs.exclude-paths }}
+      run: node "$GITHUB_ACTION_PATH/src/index.mjs"
+branding:
+  icon: 'shield'
+  color: 'purple'

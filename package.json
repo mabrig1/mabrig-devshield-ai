@@ -1,0 +1,12 @@
+{
+  "name": "mabrig-devshield-ai-action",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bash test/smoke.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

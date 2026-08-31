@@ -11,6 +11,7 @@ MABRIG DevShield AI is a GitHub Action that scans changed files for exposed secr
 - Optional OpenRouter AI review using `openrouter/auto`
 - Redaction before AI analysis
 - Configurable fail threshold
+- Configurable path exclusions for intentional fixtures/generated files
 - No build step or third-party runtime dependencies in the Action itself
 - Works with JavaScript/TypeScript, Python, PHP, Java, Go, configuration files, and most text-based repositories
 
@@ -31,7 +32,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: mabrig1/mabrig-devshield-ai@v1
@@ -53,6 +54,14 @@ Add `OPENROUTER_API_KEY` in **Repository settings → Secrets and variables → 
           fail-on: high
 ```
 
+### Excluding intentional fixtures
+
+Security test fixtures sometimes contain fake keys or deliberately unsafe code. Exclude those paths explicitly instead of weakening the scanner:
+
+```yaml
+          exclude-paths: 'test/**,fixtures/**'
+```
+
 ## Inputs
 
 | Input | Default | Purpose |
@@ -63,6 +72,7 @@ Add `OPENROUTER_API_KEY` in **Repository settings → Secrets and variables → 
 | `fail-on` | `critical` | `critical`, `high`, `medium`, `low`, `none` |
 | `comment` | `true` | Post a PR comment |
 | `max-files` | `80` | Maximum changed text files scanned |
+| `exclude-paths` | empty | Comma-separated path globs to skip, such as `test/**,fixtures/**` |
 
 ## Outputs
 
