@@ -10,7 +10,7 @@ jobs:
   devshield:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: mabrig1/mabrig-devshield-ai@v1
@@ -19,3 +19,4 @@ jobs:
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
           model: openrouter/auto
           fail-on: high
+          exclude-paths: 'test/**,fixtures/**'
