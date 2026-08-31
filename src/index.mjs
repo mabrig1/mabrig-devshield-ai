@@ -8,6 +8,8 @@ const input = (name, fallback = '') => process.env[name] ?? fallback;
 const event = readJson(process.env.GITHUB_EVENT_PATH);
 const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
 const maxFiles = clampInt(input('INPUT_MAX_FILES', '80'), 1, 300);
+const excludePaths = input('INPUT_EXCLUDE_PATHS', '').split(',').map(s => s.trim().replace(/\\/g, '/')).filter(Boolean);
+const excludeMatchers = excludePaths.map(globToRegExp);
 const failOn = input('INPUT_FAIL_ON', 'critical').toLowerCase();
 const shouldComment = input('INPUT_COMMENT', 'true').toLowerCase() === 'true';
 const token = input('INPUT_GITHUB_TOKEN') || process.env.GITHUB_TOKEN || '';
@@ -48,13 +50,34 @@ function getChangedFiles() {
   } catch {
     try { text = git(['ls-files']); } catch { return []; }
   }
-  return text.split(/\r?\n/).map(s => s.trim()).filter(Boolean).filter(isSafeRelativePath).slice(0, maxFiles);
+  return text.split(/\r?\n/).map(s => s.trim()).filter(Boolean).filter(isSafeRelativePath).filter(rel => !isExcluded(rel)).slice(0, maxFiles);
 }
 
 function isSafeRelativePath(rel) {
   if (rel.includes('\0')) return false;
   const normalized = path.normalize(rel);
   return !normalized.startsWith('..') && !path.isAbsolute(normalized);
+}
+
+function globToRegExp(pattern) {
+  let out = '^';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '*') {
+      if (pattern[i + 1] === '*') { out += '.*'; i++; }
+      else out += '[^/]*';
+    } else if (ch === '?') {
+      out += '[^/]';
+    } else {
+      out += ch.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+    }
+  }
+  return new RegExp(`${out}$`);
+}
+
+function isExcluded(rel) {
+  const normalized = rel.replace(/\\/g, '/');
+  return excludeMatchers.some(re => re.test(normalized));
 }
 
 function isTextCandidate(file) {
