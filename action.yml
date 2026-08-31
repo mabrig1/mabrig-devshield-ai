@@ -26,6 +26,10 @@ inputs:
     description: 'Maximum changed text files to scan.'
     required: false
     default: '80'
+  exclude-paths:
+    description: 'Comma-separated path globs to exclude, for example test/**,fixtures/**.'
+    required: false
+    default: ''
 outputs:
   findings-count:
     description: 'Total number of deterministic findings.'
@@ -48,6 +52,7 @@ runs:
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_COMMENT: ${{ inputs.comment }}
         INPUT_MAX_FILES: ${{ inputs.max-files }}
+        INPUT_EXCLUDE_PATHS: ${{ inputs.exclude-paths }}
       run: node "$GITHUB_ACTION_PATH/src/index.mjs"
 branding:
   icon: 'shield'
