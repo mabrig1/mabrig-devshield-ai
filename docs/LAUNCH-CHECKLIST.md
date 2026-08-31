@@ -6,7 +6,7 @@
 - [x] Add self-test workflow
 - [x] Add security policy and contribution/community files
 - [x] Validate deterministic scanner locally
-- [ ] Push files and confirm GitHub-hosted CI passes
+- [x] Push files and confirm GitHub-hosted CI passes
 - [ ] Create `v1.0.0` release and stable `v1` tag
 - [ ] Accept GitHub Marketplace Developer Agreement
 - [ ] Publish the Action to Marketplace
