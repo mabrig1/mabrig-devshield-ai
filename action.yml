@@ -1,9 +1,9 @@
 name: 'MABRIG DevShield AI'
-description: 'Security-first pull request review with deterministic checks, SARIF reporting, policy-as-code, and optional AI analysis.'
+description: 'Security-first pull request review with diff-aware checks, dependency intelligence, baselines, SARIF, policy-as-code, and optional AI analysis.'
 author: 'MABRIG Digital Media'
 inputs:
   github-token:
-    description: 'GitHub token used to comment on pull requests.'
+    description: 'GitHub token used for PR comments and optional GitHub dependency review.'
     required: false
     default: ''
   openrouter-api-key:
@@ -50,20 +50,52 @@ inputs:
     description: 'Allow devshield:ignore comments for non-critical findings.'
     required: false
     default: ''
+  dependency-review:
+    description: 'Use GitHub dependency review on pull requests: auto, true, or false.'
+    required: false
+    default: ''
+  dependency-severity:
+    description: 'Minimum dependency vulnerability severity to report: critical, high, medium/moderate, low.'
+    required: false
+    default: ''
+  dependency-deny-licenses:
+    description: 'Comma-separated SPDX license identifiers to reject for newly introduced dependencies.'
+    required: false
+    default: ''
+  baseline-file:
+    description: 'Repository-relative DevShield baseline JSON file.'
+    required: false
+    default: ''
+  baseline-mode:
+    description: 'Baseline behavior: new-only, report, or off.'
+    required: false
+    default: ''
   sarif:
     description: 'Write a SARIF 2.1.0 report for GitHub Code Scanning or other SARIF consumers.'
     required: false
     default: 'true'
   report-dir:
-    description: 'Repository-relative output directory for JSON and SARIF reports.'
+    description: 'Repository-relative output directory for JSON, SARIF, and baseline candidate reports.'
     required: false
     default: '.devshield'
 outputs:
   findings-count:
-    description: 'Total number of deterministic findings.'
+    description: 'Total findings, including baseline-existing findings.'
     value: ${{ steps.devshield.outputs.findings-count }}
+  new-findings:
+    description: 'Findings not present in the configured baseline.'
+    value: ${{ steps.devshield.outputs.new-findings }}
+  existing-findings:
+    description: 'Findings already present in the configured baseline.'
+    value: ${{ steps.devshield.outputs.existing-findings }}
+  dependency-findings:
+    description: 'Dependency vulnerability/license findings.'
+    value: ${{ steps.devshield.outputs.dependency-findings }}
+  dependency-review-status:
+    description: 'Dependency review status: success, unavailable, skipped, disabled, or fixture.'
+    value: ${{ steps.devshield.outputs.dependency-review-status }}
   risk-score:
-    description: 'Risk score from 0 to 100.'
+    description: 'Risk score from 0 to 100 for findings that participate in the merge gate.'
     value: ${{ steps.devshield.outputs.risk-score }}
   risk-level:
     description: 'Risk level: low, medium, high, or critical.'
@@ -80,6 +112,9 @@ outputs:
   sarif-file:
     description: 'Path to the generated SARIF report, when enabled.'
     value: ${{ steps.devshield.outputs.sarif-file }}
+  baseline-output-file:
+    description: 'Path to a generated baseline candidate containing current finding fingerprints.'
+    value: ${{ steps.devshield.outputs.baseline-output-file }}
 runs:
   using: 'composite'
   steps:
@@ -98,6 +133,11 @@ runs:
         INPUT_POLICY: ${{ inputs.policy }}
         INPUT_SCAN_SCOPE: ${{ inputs.scan-scope }}
         INPUT_INLINE_SUPPRESSIONS: ${{ inputs.inline-suppressions }}
+        INPUT_DEPENDENCY_REVIEW: ${{ inputs.dependency-review }}
+        INPUT_DEPENDENCY_SEVERITY: ${{ inputs.dependency-severity }}
+        INPUT_DEPENDENCY_DENY_LICENSES: ${{ inputs.dependency-deny-licenses }}
+        INPUT_BASELINE_FILE: ${{ inputs.baseline-file }}
+        INPUT_BASELINE_MODE: ${{ inputs.baseline-mode }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
       run: node "$GITHUB_ACTION_PATH/src/index.mjs"
