@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { REDACTORS, rules } from './rules.mjs';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -93,7 +93,12 @@ function sanitizeConfig(raw) {
     ignoreCategories: Array.isArray(cfg.ignoreCategories) ? cfg.ignoreCategories.filter(x => typeof x === 'string') : [],
     severityOverrides: cfg.severityOverrides && typeof cfg.severityOverrides === 'object' ? cfg.severityOverrides : {},
     maxFileBytes: Number.isFinite(Number(cfg.maxFileBytes)) ? Number(cfg.maxFileBytes) : undefined,
-    inlineSuppressions: typeof cfg.inlineSuppressions === 'boolean' ? cfg.inlineSuppressions : undefined
+    inlineSuppressions: typeof cfg.inlineSuppressions === 'boolean' ? cfg.inlineSuppressions : undefined,
+    dependencyReview: typeof cfg.dependencyReview === 'boolean' ? cfg.dependencyReview : undefined,
+    dependencySeverity: typeof cfg.dependencySeverity === 'string' ? cfg.dependencySeverity : undefined,
+    dependencyDenyLicenses: Array.isArray(cfg.dependencyDenyLicenses) ? cfg.dependencyDenyLicenses.filter(x => typeof x === 'string') : [],
+    baselineFile: typeof cfg.baselineFile === 'string' ? cfg.baselineFile : undefined,
+    baselineMode: typeof cfg.baselineMode === 'string' ? cfg.baselineMode : undefined
   };
 }
 
@@ -122,6 +127,14 @@ const maxFileBytes = clampInt(
 const policy = normalizePolicy(nonEmptyInput('INPUT_POLICY', config.policy || 'balanced'));
 const scanScope = normalizeScanScope(nonEmptyInput('INPUT_SCAN_SCOPE', config.scanScope || 'changed-lines'));
 const inlineSuppressions = parseBool(nonEmptyInput('INPUT_INLINE_SUPPRESSIONS', String(config.inlineSuppressions ?? true)), true);
+const dependencyReviewMode = normalizeDependencyReviewMode(nonEmptyInput('INPUT_DEPENDENCY_REVIEW', config.dependencyReview === false ? 'false' : 'auto'));
+const dependencyMinSeverity = normalizeDependencySeverity(nonEmptyInput('INPUT_DEPENDENCY_SEVERITY', config.dependencySeverity || 'low'));
+const dependencyDenyLicenses = new Set([
+  ...config.dependencyDenyLicenses,
+  ...input('INPUT_DEPENDENCY_DENY_LICENSES', '').split(',').map(s => s.trim()).filter(Boolean)
+].map(s => s.toUpperCase()));
+const baselineFile = safeBaselineFile(nonEmptyInput('INPUT_BASELINE_FILE', config.baselineFile || '.devshield-baseline.json'));
+const baselineMode = normalizeBaselineMode(nonEmptyInput('INPUT_BASELINE_MODE', config.baselineMode || 'new-only'));
 const excludePaths = [
   ...config.excludePaths,
   ...input('INPUT_EXCLUDE_PATHS', '').split(',').map(s => s.trim()).filter(Boolean)
@@ -148,6 +161,27 @@ function normalizePolicy(value) {
 function normalizeScanScope(value) {
   const v = String(value || '').toLowerCase();
   return ['changed-lines', 'changed-files', 'repository'].includes(v) ? v : 'changed-lines';
+}
+
+function normalizeDependencyReviewMode(value) {
+  const v = String(value || '').toLowerCase();
+  return ['auto', 'true', 'false'].includes(v) ? v : 'auto';
+}
+
+function normalizeDependencySeverity(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'moderate') return 'medium';
+  return severityRank[v] ? v : 'low';
+}
+
+function normalizeBaselineMode(value) {
+  const v = String(value || '').toLowerCase();
+  return ['new-only', 'report', 'off'].includes(v) ? v : 'new-only';
+}
+
+function safeBaselineFile(value) {
+  const rel = String(value || '').trim();
+  return rel && safeRelative(rel) ? rel : '.devshield-baseline.json';
 }
 
 function safeReportDir(value) {
