@@ -319,7 +319,42 @@ if [[ "$DEP_LEVEL" != "critical" ]]; then
   exit 1
 fi
 
-# 7) Fail threshold still blocks.
+# 7) Local CLI scans staged Git index content and blocks risky commits.
+REPO7="$TMP/cli"
+mkdir -p "$REPO7"
+cd "$REPO7"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = 1;\n' > app.js
+git add app.js
+git commit -qm "baseline"
+
+cat > app.js <<'JS'
+export function stagedRisk(input) {
+  return eval(input);
+}
+JS
+git add app.js
+
+# Change the working tree after staging. The CLI must still inspect the risky staged snapshot.
+printf 'export const safeWorkingTree = true;\n' > app.js
+
+set +e
+node "$ACTION_ROOT/bin/devshield.mjs" --staged --fail-on high --no-sarif >/dev/null 2>&1
+CLI_RISKY_STATUS=$?
+set -e
+if [[ $CLI_RISKY_STATUS -eq 0 ]]; then
+  echo "Expected local CLI to block risky staged content even when the working tree is later changed" >&2
+  exit 1
+fi
+
+git reset -q HEAD app.js
+printf 'export const safe = 2;\n' > app.js
+git add app.js
+node "$ACTION_ROOT/bin/devshield.mjs" --staged --fail-on high --no-sarif >/dev/null
+
+# 8) Fail threshold still blocks.
 cd "$REPO1"
 : > "$REPO1/out.txt"
 set +e
@@ -335,4 +370,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v1.2 enhanced smoke tests passed."
+echo "DevShield v1.3 enhanced smoke tests passed."

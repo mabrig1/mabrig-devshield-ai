@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { REDACTORS, rules } from './rules.mjs';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -160,7 +160,7 @@ function normalizePolicy(value) {
 
 function normalizeScanScope(value) {
   const v = String(value || '').toLowerCase();
-  return ['changed-lines', 'changed-files', 'repository'].includes(v) ? v : 'changed-lines';
+  return ['changed-lines', 'changed-files', 'staged', 'repository'].includes(v) ? v : 'changed-lines';
 }
 
 function normalizeDependencyReviewMode(value) {
@@ -211,7 +211,8 @@ function listChangedFiles() {
   const range = getDiffRange();
   let text = '';
   try {
-    text = range ? git(['diff', '--name-only', '--diff-filter=ACMRTUXB', range]) : git(['ls-files']);
+    if (scanScope === 'staged') text = git(['diff', '--cached', '--name-only', '--diff-filter=ACMRTUXB']);
+    else text = range ? git(['diff', '--name-only', '--diff-filter=ACMRTUXB', range]) : git(['ls-files']);
   } catch {
     try { text = git(['ls-files']); } catch { return []; }
   }
@@ -239,9 +240,13 @@ function listRepositoryFiles() {
 function parseAddedLines() {
   const range = getDiffRange();
   const map = new Map();
-  if (!range) return map;
+  if (scanScope !== 'staged' && !range) return map;
   let diff = '';
-  try { diff = git(['diff', '--no-color', '--no-ext-diff', '--unified=0', range]); } catch { return map; }
+  try {
+    diff = scanScope === 'staged'
+      ? git(['diff', '--cached', '--no-color', '--no-ext-diff', '--unified=0'])
+      : git(['diff', '--no-color', '--no-ext-diff', '--unified=0', range]);
+  } catch { return map; }
 
   let current = '';
   let newLine = 0;
@@ -344,9 +349,19 @@ function readFileLimited(abs) {
   }
 }
 
+function readStagedFile(rel) {
+  try {
+    const content = git(['show', `:${rel}`]);
+    if (!content || content.includes('\0')) return '';
+    return content.length > maxFileBytes ? content.slice(0, maxFileBytes) : content;
+  } catch {
+    return '';
+  }
+}
+
 function scanFile(rel, addedLines = null) {
   const abs = path.join(workspace, rel);
-  const content = readFileLimited(abs);
+  const content = scanScope === 'staged' ? readStagedFile(rel) : readFileLimited(abs);
   if (!content) return { findings: [], ignored: 0 };
   const findings = [];
   let ignored = 0;
@@ -854,9 +869,13 @@ function redact(text) {
 
 function filteredDiff(files) {
   const range = getDiffRange();
-  if (!range || !files.length) return '';
+  if (!files.length) return '';
+  if (scanScope !== 'staged' && !range) return '';
   try {
-    return git(['diff', '--no-color', '--unified=2', range, '--', ...files]).slice(0, 80_000);
+    const args = scanScope === 'staged'
+      ? ['diff', '--cached', '--no-color', '--unified=2', '--', ...files]
+      : ['diff', '--no-color', '--unified=2', range, '--', ...files];
+    return git(args).slice(0, 80_000);
   } catch {
     return '';
   }
@@ -928,14 +947,14 @@ function setOutput(name, value) {
 }
 
 const changedFiles = listChangedFiles();
-const addedLineMap = scanScope === 'changed-lines' ? parseAddedLines() : new Map();
+const addedLineMap = (scanScope === 'changed-lines' || scanScope === 'staged') ? parseAddedLines() : new Map();
 const files = scanScope === 'repository' ? listRepositoryFiles() : changedFiles;
 
 let ignored = 0;
 let findings = [];
 for (const file of files) {
-  const lineFilter = scanScope === 'changed-lines' ? (addedLineMap.get(file) || new Set()) : null;
-  if (scanScope === 'changed-lines' && lineFilter.size === 0) continue;
+  const lineFilter = (scanScope === 'changed-lines' || scanScope === 'staged') ? (addedLineMap.get(file) || new Set()) : null;
+  if ((scanScope === 'changed-lines' || scanScope === 'staged') && lineFilter.size === 0) continue;
   const scanned = scanFile(file, lineFilter);
   findings.push(...scanned.findings);
   ignored += scanned.ignored;

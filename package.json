@@ -1,10 +1,14 @@
 {
   "name": "mabrig-devshield-ai-action",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "devshield": "bin/devshield.mjs"
+  },
   "scripts": {
-    "test": "bash test/smoke.sh"
+    "test": "bash test/smoke.sh",
+    "scan": "node bin/devshield.mjs"
   },
   "engines": {
     "node": ">=20"

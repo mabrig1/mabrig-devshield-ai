@@ -43,7 +43,7 @@ inputs:
     required: false
     default: ''
   scan-scope:
-    description: 'Scan scope: changed-lines, changed-files, or repository.'
+    description: 'Scan scope: changed-lines, changed-files, repository, or staged (local CLI only).'
     required: false
     default: ''
   inline-suppressions:
