@@ -358,3 +358,183 @@ function scanFile(rel, addedLines = null) {
   // Contextual workflow check: pull_request_target + checkout of PR head is especially dangerous.
   if (/\.github\/workflows\/.*\.ya?ml$/i.test(rel) && (!addedLines || [...addedLines].some(n => n >= 1))) {
     if (/\bpull_request_target\s*:/.test(content) &&
+        /uses:\s*actions\/checkout@/i.test(content) &&
+        /ref\s*:\s*\$\{\{\s*github\.event\.pull_request\.(?:head\.sha|head\.ref)/i.test(content)) {
+      const special = rule('pwn-request-checkout', 'critical', 'ci-security', /./, 'pull_request_target workflow checks out untrusted PR code with elevated base-repository privileges.', 'CWE-829', 'Use pull_request for untrusted code, or never execute/check out the PR head in privileged workflows.');
+      if (policyAllows(special)) {
+        const lineNo = Math.max(1, lines.findIndex(l => /pull_request_target\s*:/.test(l)) + 1);
+        findings.push(makeFinding(special, rel, lineNo, lines[lineNo - 1] || 'pull_request_target'));
+      }
+    }
+  }
+
+  return { findings, ignored };
+}
+
+function dedupeFindings(findings) {
+  const seen = new Set();
+  return findings.filter(f => {
+    const key = `${f.rule}\0${f.file}\0${f.line}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function riskFrom(findings) {
+  let score = 0;
+  const perRuleFile = new Map();
+  let highest = 0;
+  for (const f of findings) {
+    highest = Math.max(highest, severityRank[f.severity] || 0);
+    const key = `${f.rule}\0${f.file}`;
+    const count = perRuleFile.get(key) || 0;
+    if (count < 3) score += weights[f.severity] || 0;
+    perRuleFile.set(key, count + 1);
+  }
+  score = Math.min(100, score);
+  const level = highest >= 4 ? 'critical' : highest === 3 ? 'high' : highest === 2 ? 'medium' : 'low';
+  return { score, level };
+}
+
+function escapeCommand(s) {
+  return String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+
+function emitAnnotations(findings) {
+  for (const f of findings.slice(0, 80)) {
+    const cmd = f.severity === 'critical' || f.severity === 'high' ? 'error' : f.severity === 'medium' ? 'warning' : 'notice';
+    console.log(`::${cmd} file=${escapeCommand(f.file)},line=${f.line},title=${escapeCommand(`DevShield ${f.rule}`)}::${escapeCommand(f.message)}`);
+  }
+}
+
+function severityCounts(findings) {
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of findings) counts[f.severity] = (counts[f.severity] || 0) + 1;
+  return counts;
+}
+
+function categoryCounts(findings) {
+  const counts = {};
+  for (const f of findings) counts[f.category] = (counts[f.category] || 0) + 1;
+  return counts;
+}
+
+function buildMarkdown(files, findings, risk, ai, ignored) {
+  const counts = severityCounts(findings);
+  const categories = Object.entries(categoryCounts(findings)).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const rows = findings.slice(0, 30).map(f =>
+    `| ${f.severity.toUpperCase()} | \`${f.rule}\` | \`${f.file}:${f.line}\` | ${f.message.replace(/\|/g, '\\|')} |`
+  ).join('\n');
+  const categoryText = categories.length ? categories.map(([k, v]) => `${k} **${v}**`).join(' · ') : 'none';
+  return `${COMMENT_MARKER}
+## 🛡️ MABRIG DevShield AI
+
+**Risk:** ${risk.level.toUpperCase()} · **Score:** ${risk.score}/100 · **Files scanned:** ${files.length} · **Scope:** \`${scanScope}\` · **Policy:** \`${policy}\`
+
+Critical **${counts.critical}** · High **${counts.high}** · Medium **${counts.medium}** · Low **${counts.low}** · Suppressed **${ignored}**
+
+**Categories:** ${categoryText}
+
+${findings.length ? `| Severity | Rule | Location | Finding |
+|---|---|---|---|
+${rows}` : '✅ No deterministic security findings were detected in the selected scope.'}
+
+${findings.length > 30 ? `_${findings.length - 30} additional findings omitted from this comment._\n\n` : ''}${ai ? `### AI-assisted review
+
+${ai}
+
+` : ''}### Reports
+
+Machine-readable JSON${writeSarif ? ' and SARIF' : ''} reports were generated in \`${reportDir}/\`.
+
+---
+*MABRIG DevShield AI v${VERSION} · security-first review before merge*`;
+}
+
+function makeSarif(findings) {
+  const ruleIds = [...new Set(findings.map(f => f.rule))];
+  const ruleDefs = new Map();
+  for (const r of rules) ruleDefs.set(r.id, r);
+  const synthetic = {
+    'tracked-env': { id: 'tracked-env', severity: 'critical', category: 'secrets', message: 'A real .env-style file is tracked.', cwe: 'CWE-798', remediation: 'Remove it from Git history and rotate credentials.' },
+    'public-secret-env': { id: 'public-secret-env', severity: 'critical', category: 'secrets', message: 'Secret-looking value is exposed through NEXT_PUBLIC_.', cwe: 'CWE-200', remediation: 'Move the value server-side and rotate it.' },
+    'floating-dependency': { id: 'floating-dependency', severity: 'medium', category: 'supply-chain', message: 'A package dependency uses a floating version.', cwe: 'CWE-829', remediation: 'Pin a bounded version range.' },
+    'package-registry-credential': { id: 'package-registry-credential', severity: 'critical', category: 'secrets', message: 'Package registry credentials appear committed.', cwe: 'CWE-798', remediation: 'Rotate the credential and load it from a secret store.' },
+    'pwn-request-checkout': { id: 'pwn-request-checkout', severity: 'critical', category: 'ci-security', message: 'Privileged workflow checks out untrusted PR code.', cwe: 'CWE-829', remediation: 'Do not execute untrusted PR code under pull_request_target.' }
+  };
+  for (const [k, v] of Object.entries(synthetic)) ruleDefs.set(k, v);
+
+  const sarifRules = ruleIds.map(id => {
+    const r = ruleDefs.get(id) || { id, severity: 'medium', category: 'security', message: id, cwe: '', remediation: '' };
+    return {
+      id,
+      name: id,
+      shortDescription: { text: r.message || id },
+      fullDescription: { text: r.remediation ? `${r.message} ${r.remediation}` : (r.message || id) },
+      help: { text: r.remediation || r.message || id },
+      properties: {
+        category: r.category || 'security',
+        securitySeverity: String(({ low: 3.0, medium: 6.0, high: 8.0, critical: 9.8 })[effectiveSeverity(r)] || 6.0),
+        tags: [r.cwe || 'security'].filter(Boolean)
+      }
+    };
+  });
+
+  const levelMap = { critical: 'error', high: 'error', medium: 'warning', low: 'note' };
+  return {
+    version: '2.1.0',
+    $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+    runs: [{
+      tool: {
+        driver: {
+          name: 'MABRIG DevShield AI',
+          version: VERSION,
+          informationUri: 'https://github.com/mabrig1/mabrig-devshield-ai',
+          rules: sarifRules
+        }
+      },
+      results: findings.map(f => ({
+        ruleId: f.rule,
+        level: levelMap[f.severity] || 'warning',
+        message: { text: `${f.message}${f.remediation ? ` Remediation: ${f.remediation}` : ''}` },
+        locations: [{
+          physicalLocation: {
+            artifactLocation: { uri: f.file.replace(/\\/g, '/') },
+            region: { startLine: f.line }
+          }
+        }],
+        partialFingerprints: { primaryLocationLineHash: f.fingerprint },
+        properties: {
+          severity: f.severity,
+          category: f.category,
+          cwe: f.cwe,
+          confidence: f.confidence
+        }
+      }))
+    }]
+  };
+}
+
+function writeReports(files, findings, risk, ignored) {
+  const absDir = path.join(workspace, reportDir);
+  fs.mkdirSync(absDir, { recursive: true });
+  const reportFile = path.join(absDir, 'devshield-report.json');
+  const sarifFile = path.join(absDir, 'devshield.sarif');
+  const report = {
+    schemaVersion: 1,
+    tool: { name: 'MABRIG DevShield AI', version: VERSION },
+    generatedAt: new Date().toISOString(),
+    repository: event?.repository?.full_name || process.env.GITHUB_REPOSITORY || '',
+    headSha: event?.pull_request?.head?.sha || event?.after || process.env.GITHUB_SHA || '',
+    configuration: {
+      policy,
+      scanScope,
+      configFile: loadedConfig.path || null,
+      excludedPaths: excludePaths,
+      inlineSuppressions
+    },
+    summary: {
+      filesScanned: files.length,
+      findings: findings.length,
+      ignoredFindings: ignored,
