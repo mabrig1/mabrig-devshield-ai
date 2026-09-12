@@ -2,6 +2,21 @@
 
 All notable changes to **MABRIG DevShield AI** are documented here.
 
+## [1.3.0] - 2026-09-12
+
+### Added
+- Local dependency-free DevShield CLI.
+- `npm run scan` developer workflow.
+- `staged` scan scope for pre-commit/pre-push prevention.
+- Example Git pre-commit hook.
+
+### Security
+- Staged scans read the Git index snapshot with `git show :path` rather than the mutable working-tree copy, preventing staged-content/working-tree divergence from bypassing local review.
+
+### Validation
+- Smoke coverage verifies risky staged code is blocked even if the working tree is changed to a safe version after staging.
+- Safe staged changes pass the local CLI gate.
+
 ## [1.2.0] - 2026-09-12
 
 ### Added
