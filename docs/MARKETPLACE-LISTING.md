@@ -4,33 +4,40 @@
 MABRIG DevShield AI
 
 ## Tagline
-Security-first AI pull request review before merge.
+High-signal security review for every pull request.
 
 ## Short description
-DevShield combines high-signal deterministic checks with managed AI review to catch exposed secrets, unsafe configuration, authorization mistakes, production regressions, and risky pull-request changes before they reach production.
+DevShield combines diff-aware deterministic security checks, policy-as-code, SARIF/JSON reporting, and optional redacted AI review to catch secrets, injection risks, unsafe CI/CD, IaC mistakes, and container privilege problems before merge.
 
 ## Full description
-MABRIG DevShield AI gives developers and growing SaaS teams a practical review gate directly inside GitHub pull requests. It begins with deterministic checks that do not depend on an LLM, then—on paid plans—adds a managed AI reviewer focused on security, reliability, permissions, data-loss risk, and deploy-breaking regressions.
+MABRIG DevShield AI is a security-first merge gate for developers and growing engineering teams.
 
-Unlike generic “AI code style” bots, DevShield is designed around merge risk. Every review produces a concise risk score, prioritized findings, and actionable fixes in the pull request conversation.
+It starts with transparent deterministic analysis that works without an AI key. By default, DevShield reviews only newly added lines so legacy issues do not drown out the risk introduced by the current pull request. Teams can tune policy in `.devshield.json`, upload SARIF into GitHub Code Scanning, and optionally enable an AI second pass after excluded paths are filtered and common secret formats are redacted.
 
 ### Highlights
-- Secret and private-key detection
-- Risky configuration and TLS checks
-- GitHub Actions supply-chain checks
-- AI-assisted security and regression review
-- Pull-request-native comments
-- Monthly usage tiers for individuals and teams
-- Free GitHub Action available for self-managed/BYOK use
+- Diff-aware changed-line review
+- 50+ deterministic checks
+- Secret and credential exposure detection
+- Injection, TLS, CORS, JWT, and unsafe execution checks
+- GitHub Actions and supply-chain hardening
+- IaC and container privilege checks
+- Policy-as-code with severity overrides
+- Balanced, strict, and secrets-only modes
+- JSON + SARIF 2.1.0 output
+- Stable finding fingerprints
+- Optional OpenRouter AI review with prompt-injection-resistant instructions
+- Pull-request annotations, summaries, risk score, and configurable merge gates
+- No third-party runtime packages required by the Action
 
 ## Primary category
-Code review
-
-## Secondary category
 Security
 
+## Secondary category
+Code review
+
 ## Suggested screenshots
-1. Pull request comment showing risk score and findings
-2. GitHub Actions annotations in “Files changed”
-3. Pricing/plan selection page
-4. Team usage dashboard (Phase 2)
+1. Pull request comment showing risk score, categories, and prioritized findings
+2. Files-changed annotations for a blocked CI injection or exposed secret
+3. GitHub Code Scanning view populated from DevShield SARIF
+4. `.devshield.json` policy example
+5. Team/organization dashboard from the future commercial GitHub App

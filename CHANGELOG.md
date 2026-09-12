@@ -2,6 +2,31 @@
 
 All notable changes to **MABRIG DevShield AI** are documented here.
 
+## [1.1.0] - 2026-09-12
+
+### Added
+- Diff-aware `changed-lines` scanning as the default PR review mode.
+- `changed-files` and full `repository` scan scopes.
+- 50+ deterministic checks spanning secrets, injection, deserialization, XSS, authentication, configuration, cryptography, GitHub Actions, supply chain, IaC, and containers.
+- Repository policy-as-code through `.devshield.json`.
+- `balanced`, `strict`, and `secrets-only` policies.
+- Rule/category ignores and per-rule severity overrides.
+- Inline `devshield:ignore` suppressions for non-critical findings.
+- SARIF 2.1.0 output with CWE/category metadata and stable fingerprints.
+- Structured JSON report for CI pipelines and commercial ingestion.
+- Additional outputs: scanned files, ignored findings, report path, and SARIF path.
+- Safer AI handoff with expanded secret redaction, excluded-path filtering, and explicit prompt-injection resistance.
+
+### Changed
+- Risk scoring now caps repeated rule/file hits so one noisy pattern does not dominate the score.
+- Critical findings cannot be hidden with inline suppressions.
+- PR comments include scan scope, active policy, category counts, suppression count, and report locations.
+- Maximum default files scanned increased from 80 to 120.
+- Package version advanced to 1.1.0.
+
+### Validation
+- Smoke coverage now validates diff-aware scanning, suppressions, policy configuration, JSON/SARIF generation, critical findings, and merge-gate behavior.
+
 ## [1.0.0] - 2026-08-31
 
 ### Added
@@ -22,4 +47,3 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 ### Validation
 - Pull request launch CI passed.
 - Post-merge `main` CI passed.
-

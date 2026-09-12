@@ -1,0 +1,13 @@
+{
+  "policy": "balanced",
+  "scanScope": "changed-lines",
+  "excludePaths": [
+    "fixtures/**",
+    "generated/**"
+  ],
+  "ignoreRules": [],
+  "ignoreCategories": [],
+  "severityOverrides": {},
+  "maxFileBytes": 1500000,
+  "inlineSuppressions": true
+}
