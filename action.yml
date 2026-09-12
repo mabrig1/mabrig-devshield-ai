@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security-first pull request review with deterministic checks and optional AI analysis.'
+description: 'Security-first pull request review with deterministic checks, SARIF reporting, policy-as-code, and optional AI analysis.'
 author: 'MABRIG Digital Media'
 inputs:
   github-token:
@@ -23,13 +23,41 @@ inputs:
     required: false
     default: 'true'
   max-files:
-    description: 'Maximum changed text files to scan.'
+    description: 'Maximum text files to scan.'
     required: false
-    default: '80'
+    default: '120'
+  max-file-bytes:
+    description: 'Maximum bytes read from each text file.'
+    required: false
+    default: ''
   exclude-paths:
     description: 'Comma-separated path globs to exclude, for example test/**,fixtures/**.'
     required: false
     default: ''
+  config-file:
+    description: 'Repository-relative JSON policy file.'
+    required: false
+    default: '.devshield.json'
+  policy:
+    description: 'Rule policy: balanced, strict, or secrets-only.'
+    required: false
+    default: ''
+  scan-scope:
+    description: 'Scan scope: changed-lines, changed-files, or repository.'
+    required: false
+    default: ''
+  inline-suppressions:
+    description: 'Allow devshield:ignore comments for non-critical findings.'
+    required: false
+    default: ''
+  sarif:
+    description: 'Write a SARIF 2.1.0 report for GitHub Code Scanning or other SARIF consumers.'
+    required: false
+    default: 'true'
+  report-dir:
+    description: 'Repository-relative output directory for JSON and SARIF reports.'
+    required: false
+    default: '.devshield'
 outputs:
   findings-count:
     description: 'Total number of deterministic findings.'
@@ -40,6 +68,18 @@ outputs:
   risk-level:
     description: 'Risk level: low, medium, high, or critical.'
     value: ${{ steps.devshield.outputs.risk-level }}
+  scanned-files:
+    description: 'Number of files selected for scanning.'
+    value: ${{ steps.devshield.outputs.scanned-files }}
+  ignored-findings:
+    description: 'Number of findings suppressed by inline policy.'
+    value: ${{ steps.devshield.outputs.ignored-findings }}
+  report-file:
+    description: 'Path to the generated JSON report.'
+    value: ${{ steps.devshield.outputs.report-file }}
+  sarif-file:
+    description: 'Path to the generated SARIF report, when enabled.'
+    value: ${{ steps.devshield.outputs.sarif-file }}
 runs:
   using: 'composite'
   steps:
@@ -52,7 +92,14 @@ runs:
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_COMMENT: ${{ inputs.comment }}
         INPUT_MAX_FILES: ${{ inputs.max-files }}
+        INPUT_MAX_FILE_BYTES: ${{ inputs.max-file-bytes }}
         INPUT_EXCLUDE_PATHS: ${{ inputs.exclude-paths }}
+        INPUT_CONFIG_FILE: ${{ inputs.config-file }}
+        INPUT_POLICY: ${{ inputs.policy }}
+        INPUT_SCAN_SCOPE: ${{ inputs.scan-scope }}
+        INPUT_INLINE_SUPPRESSIONS: ${{ inputs.inline-suppressions }}
+        INPUT_SARIF: ${{ inputs.sarif }}
+        INPUT_REPORT_DIR: ${{ inputs.report-dir }}
       run: node "$GITHUB_ACTION_PATH/src/index.mjs"
 branding:
   icon: 'shield'
