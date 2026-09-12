@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+import process from 'node:process';
+
+const args = process.argv.slice(2);
+const options = new Map();
+const flags = new Set();
+
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  if (arg === '--help' || arg === '-h') flags.add('help');
+  else if (arg === '--no-sarif') flags.add('no-sarif');
+  else if (arg === '--strict') options.set('policy', 'strict');
+  else if (arg === '--repository') options.set('scope', 'repository');
+  else if (arg === '--changed-files') options.set('scope', 'changed-files');
+  else if (arg === '--staged') options.set('scope', 'staged');
+  else if (arg.startsWith('--') && i + 1 < args.length) {
+    options.set(arg.slice(2), args[++i]);
+  } else {
+    console.error(`Unknown argument: ${arg}`);
+    process.exit(2);
+  }
+}
+
+if (flags.has('help')) {
+  console.log(`MABRIG DevShield AI local scanner
+
+Usage:
+  node bin/devshield.mjs [options]
+  npm run scan -- [options]
+
+Default behavior scans staged Git changes and blocks at high severity.
+
+Options:
+  --staged                 Scan staged changes (default)
+  --changed-files          Scan all lines in changed files
+  --repository             Scan tracked repository files
+  --scope <scope>          staged|changed-lines|changed-files|repository
+  --fail-on <severity>     critical|high|medium|low|none (default: high)
+  --policy <policy>        balanced|strict|secrets-only
+  --strict                 Shortcut for --policy strict
+  --config <path>          Policy file (default: .devshield.json)
+  --exclude <globs>        Comma-separated path globs
+  --baseline <path>        Baseline file
+  --baseline-mode <mode>   new-only|report|off
+  --report-dir <path>      Report directory (default: .devshield)
+  --no-sarif               Disable SARIF output
+  -h, --help               Show this help
+
+Examples:
+  npm run scan
+  npm run scan -- --strict --fail-on medium
+  npm run scan -- --repository --fail-on high
+`);
+  process.exit(0);
+}
+
+const scope = options.get('scope') || 'staged';
+const failOn = options.get('fail-on') || 'high';
+const policy = options.get('policy') || '';
+const config = options.get('config') || '.devshield.json';
+const exclude = options.get('exclude') || '';
+const baseline = options.get('baseline') || '';
+const baselineMode = options.get('baseline-mode') || '';
+const reportDir = options.get('report-dir') || '.devshield';
+
+process.env.GITHUB_WORKSPACE = process.cwd();
+process.env.INPUT_SCAN_SCOPE = scope;
+process.env.INPUT_FAIL_ON = failOn;
+process.env.INPUT_COMMENT = 'false';
+process.env.INPUT_DEPENDENCY_REVIEW = 'false';
+process.env.INPUT_CONFIG_FILE = config;
+process.env.INPUT_REPORT_DIR = reportDir;
+process.env.INPUT_SARIF = flags.has('no-sarif') ? 'false' : 'true';
+
+if (policy) process.env.INPUT_POLICY = policy;
+if (exclude) process.env.INPUT_EXCLUDE_PATHS = exclude;
+if (baseline) process.env.INPUT_BASELINE_FILE = baseline;
+if (baselineMode) process.env.INPUT_BASELINE_MODE = baselineMode;
+
+await import('../src/index.mjs');
