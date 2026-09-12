@@ -9,5 +9,10 @@
   "ignoreCategories": [],
   "severityOverrides": {},
   "maxFileBytes": 1500000,
-  "inlineSuppressions": true
+  "inlineSuppressions": true,
+  "dependencyReview": true,
+  "dependencySeverity": "low",
+  "dependencyDenyLicenses": [],
+  "baselineFile": ".devshield-baseline.json",
+  "baselineMode": "new-only"
 }
