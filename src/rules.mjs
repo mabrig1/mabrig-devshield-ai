@@ -20,6 +20,7 @@ export const REDACTORS = [
 ];
 
 export const rules = [
+  // Secrets
   rule('private-key', 'critical', 'secrets', /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/, 'Private key material appears to be committed.', 'CWE-321', 'Remove the key, rotate it, and store credentials in a secret manager.'),
   rule('github-token', 'critical', 'secrets', /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/, 'Possible GitHub token detected.', 'CWE-798', 'Revoke/rotate the token and move it to GitHub Actions secrets.'),
   rule('openai-key', 'critical', 'secrets', /\bsk-(?:proj-|or-v1-)?[A-Za-z0-9_-]{20,}\b/, 'Possible AI provider API key detected.', 'CWE-798', 'Rotate the key and load it from a protected secret store.'),
@@ -30,6 +31,8 @@ export const rules = [
   rule('sendgrid-key', 'critical', 'secrets', /\bSG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/, 'Possible SendGrid API key detected.', 'CWE-798', 'Revoke and rotate the key.'),
   rule('credential-url', 'critical', 'secrets', /(?:https?|postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/[^/\s:@]+:[^/\s@]+@/i, 'Credentials appear embedded in a connection URL.', 'CWE-798', 'Use environment variables or a secret manager instead of embedding credentials.'),
   rule('generic-secret-assignment', 'high', 'secrets', /\b(?:api[_-]?key|secret|password|passwd|access[_-]?token|auth[_-]?token)\b\s*[:=]\s*["'][^"']{16,}["']/i, 'A secret-looking value is assigned directly in source.', 'CWE-798', 'Move the value to a secret manager and rotate it if real.', { strictOnly: true }),
+
+  // Code injection / unsafe execution
   rule('dangerous-eval', 'high', 'injection', /\beval\s*\(/, 'Dynamic eval() can enable code injection.', 'CWE-95', 'Avoid eval; parse or dispatch using explicit allowlisted operations.'),
   rule('shell-exec', 'medium', 'injection', /\b(?:exec|execSync)\s*\(/, 'Shell execution found. Confirm arguments cannot contain untrusted input.', 'CWE-78', 'Prefer execFile/spawn with argument arrays and validate untrusted values.'),
   rule('shell-interpolation', 'high', 'injection', /\b(?:exec|execSync)\s*\(\s*`[^`]*\$\{[^}]+\}/, 'Shell command is built with string interpolation.', 'CWE-78', 'Use execFile/spawn with an argument array instead of interpolated shell commands.'),
@@ -40,6 +43,8 @@ export const rules = [
   rule('sql-string-build', 'high', 'injection', /(?:\bSELECT\b[^\n]{0,60}\bFROM\b|\bINSERT\s+INTO\b|\bUPDATE\s+[A-Za-z_][\w.]*\s+SET\b|\bDELETE\s+FROM\b)[^\n]{0,100}(?:\$\{|\+\s*(?:req|request|params)\.|%\s*\()/i, 'Possible SQL query construction with request data.', 'CWE-89', 'Use parameterized queries or prepared statements.'),
   rule('dangerous-innerhtml', 'medium', 'xss', /\b(?:innerHTML|outerHTML)\s*=/, 'Direct HTML assignment can enable DOM XSS when data is untrusted.', 'CWE-79', 'Use safe DOM APIs or sanitize trusted HTML explicitly.', { strictOnly: true }),
   rule('react-dangerous-html', 'medium', 'xss', /\bdangerouslySetInnerHTML\s*=/, 'React dangerouslySetInnerHTML bypasses normal escaping.', 'CWE-79', 'Avoid it or sanitize trusted HTML with a well-reviewed sanitizer.'),
+
+  // Transport / runtime configuration
   rule('disabled-tls', 'high', 'configuration', /rejectUnauthorized\s*:\s*false|NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*["']?0/, 'TLS certificate verification appears disabled.', 'CWE-295', 'Enable certificate verification and install the correct trust chain.'),
   rule('python-verify-false', 'high', 'configuration', /\brequests\.(?:get|post|put|patch|delete|request)\([^)]*verify\s*=\s*False/, 'Python HTTP request disables TLS verification.', 'CWE-295', 'Remove verify=False and trust the correct CA certificate.'),
   rule('wildcard-cors', 'medium', 'configuration', /Access-Control-Allow-Origin["'\s,:=]+\*|origin\s*:\s*["']\*["']/, 'Wildcard CORS detected.', 'CWE-942', 'Restrict allowed origins to trusted applications.'),
@@ -47,12 +52,16 @@ export const rules = [
   rule('jwt-verification-disabled', 'critical', 'authentication', /verify_signature["']?\s*[:=]\s*False|verify\s*=\s*False[^)]*jwt/i, 'JWT signature verification appears disabled.', 'CWE-347', 'Always verify JWT signatures and expected issuer/audience.'),
   rule('weak-md5-security', 'medium', 'cryptography', /\b(?:md5|createHash\(["']md5["']\)|hashlib\.md5)\b/i, 'MD5 is not suitable for security-sensitive hashing.', 'CWE-327', 'Use a modern cryptographic hash; for passwords use Argon2, scrypt, or bcrypt.', { strictOnly: true }),
   rule('weak-sha1-security', 'low', 'cryptography', /\b(?:sha1|createHash\(["']sha1["']\)|hashlib\.sha1)\b/i, 'SHA-1 is deprecated for security-sensitive hashing.', 'CWE-327', 'Use SHA-256+ for integrity or a password-hashing function for passwords.', { strictOnly: true }),
+
+  // Supply chain / GitHub Actions
   rule('unpinned-action-moving', 'medium', 'supply-chain', /uses:\s*[^\s]+@(?:main|master|latest)\b/i, 'GitHub Action is pinned to a moving branch/tag.', 'CWE-829', 'Pin to a trusted full commit SHA or an immutable release reference.', { file: /\.ya?ml$/i }),
   rule('unpinned-action-tag', 'low', 'supply-chain', /uses:\s*(?!\.\/)(?!docker:\/\/)[^\s]+@(?![a-f0-9]{40,64}\b)[^\s#]+/i, 'GitHub Action reference is mutable.', 'CWE-829', 'For maximum supply-chain integrity, pin third-party actions to a full commit SHA.', { file: /\.github\/workflows\/.*\.ya?ml$/i, strictOnly: true }),
   rule('workflow-write-all', 'high', 'ci-security', /^\s*permissions\s*:\s*write-all\s*$/i, 'Workflow grants write-all token permissions.', 'CWE-250', 'Grant only the minimum required GITHUB_TOKEN permissions.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
   rule('workflow-pr-target', 'high', 'ci-security', /^\s*pull_request_target\s*:/i, 'pull_request_target runs with base-repository privileges and needs careful hardening.', 'CWE-829', 'Avoid executing untrusted PR code in pull_request_target workflows.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
   rule('workflow-expression-in-run', 'critical', 'ci-security', /run\s*:[^\n]*\$\{\{\s*github\.event\.(?:pull_request\.(?:title|body|head\.ref)|issue\.title|comment\.body)/i, 'Potential script injection: untrusted event text is interpolated directly into a run command.', 'CWE-78', 'Assign the expression to an environment variable and quote/use it as data.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
   rule('curl-pipe-shell', 'high', 'supply-chain', /\bcurl\b[^|]{0,200}\|\s*(?:sudo\s+)?(?:sh|bash)\b|\bwget\b[^|]{0,200}\|\s*(?:sudo\s+)?(?:sh|bash)\b/i, 'Remote content is piped directly to a shell.', 'CWE-494', 'Download, verify checksum/signature, then execute a pinned artifact.'),
+
+  // IaC / container hardening
   rule('world-open-ingress', 'high', 'iac', /\b0\.0\.0\.0\/0\b|\b::\/0\b/, 'Network rule appears open to the entire internet.', 'CWE-284', 'Restrict ingress/egress to required CIDRs and ports.', { file: /\.(?:tf|ya?ml|json)$/i }),
   rule('iam-action-wildcard', 'high', 'iac', /["']?Action["']?\s*[:=]\s*["']\*["']/, 'IAM policy grants wildcard actions.', 'CWE-250', 'Grant only the required actions.', { file: /\.(?:tf|json|ya?ml)$/i }),
   rule('iam-resource-wildcard', 'medium', 'iac', /["']?Resource["']?\s*[:=]\s*["']\*["']/, 'IAM policy applies to all resources.', 'CWE-250', 'Scope the policy to specific resource ARNs.', { file: /\.(?:tf|json|ya?ml)$/i }),
