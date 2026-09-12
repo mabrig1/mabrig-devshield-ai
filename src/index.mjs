@@ -418,7 +418,7 @@ function scanFile(rel, addedLines = null) {
 function dedupeFindings(findings) {
   const seen = new Set();
   return findings.filter(f => {
-    const key = `${f.rule}\0${f.file}\0${f.line}`;
+    const key = f.fingerprint || `${f.rule}\0${f.file}\0${f.line}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -646,33 +646,47 @@ function categoryCounts(findings) {
   return counts;
 }
 
-function buildMarkdown(files, findings, risk, ai, ignored) {
-  const counts = severityCounts(findings);
-  const categories = Object.entries(categoryCounts(findings)).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const rows = findings.slice(0, 30).map(f =>
+function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview) {
+  const counts = severityCounts(gateFindings);
+  const categories = Object.entries(categoryCounts(gateFindings)).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const newCount = findings.filter(f => f.status === 'new').length;
+  const existingCount = findings.filter(f => f.status === 'existing').length;
+  const dependencyCount = findings.filter(f => f.category === 'dependencies').length;
+  const rows = gateFindings.slice(0, 30).map(f =>
     `| ${f.severity.toUpperCase()} | \`${f.rule}\` | \`${f.file}:${f.line}\` | ${f.message.replace(/\|/g, '\\|')} |`
   ).join('\n');
   const categoryText = categories.length ? categories.map(([k, v]) => `${k} **${v}**`).join(' · ') : 'none';
+  const baselineText = baselineMode === 'off'
+    ? 'off'
+    : `${baseline.status} · mode \`${baselineMode}\``;
+  const dependencyText = `${dependencyReview.status} · reviewed ${dependencyReview.dependenciesReviewed} changed dependencies · findings ${dependencyCount}`;
+
   return `${COMMENT_MARKER}
 ## 🛡️ MABRIG DevShield AI
 
 **Risk:** ${risk.level.toUpperCase()} · **Score:** ${risk.score}/100 · **Files scanned:** ${files.length} · **Scope:** \`${scanScope}\` · **Policy:** \`${policy}\`
 
-Critical **${counts.critical}** · High **${counts.high}** · Medium **${counts.medium}** · Low **${counts.low}** · Suppressed **${ignored}**
+**Findings:** total **${findings.length}** · new **${newCount}** · baseline-existing **${existingCount}** · merge-gated **${gateFindings.length}** · suppressed **${ignored}**
 
-**Categories:** ${categoryText}
+Critical **${counts.critical}** · High **${counts.high}** · Medium **${counts.medium}** · Low **${counts.low}**
 
-${findings.length ? `| Severity | Rule | Location | Finding |
+**Categories in merge gate:** ${categoryText}
+
+**Dependency intelligence:** ${dependencyText}
+
+**Baseline:** ${baselineText}
+
+${gateFindings.length ? `| Severity | Rule | Location | Finding |
 |---|---|---|---|
-${rows}` : '✅ No deterministic security findings were detected in the selected scope.'}
+${rows}` : '✅ No new findings meet the active merge-gate policy.'}
 
-${findings.length > 30 ? `_${findings.length - 30} additional findings omitted from this comment._\n\n` : ''}${ai ? `### AI-assisted review
+${gateFindings.length > 30 ? `_${gateFindings.length - 30} additional merge-gated findings omitted from this comment._\n\n` : ''}${existingCount && baselineMode === 'new-only' ? `_${existingCount} finding(s) match the committed baseline and remain visible in machine-readable reports without blocking this pull request._\n\n` : ''}${ai ? `### AI-assisted review
 
 ${ai}
 
 ` : ''}### Reports
 
-Machine-readable JSON${writeSarif ? ' and SARIF' : ''} reports were generated in \`${reportDir}/\`.
+Machine-readable JSON${writeSarif ? ' and SARIF' : ''} reports plus a baseline candidate were generated in \`${reportDir}/\`.
 
 ---
 *MABRIG DevShield AI v${VERSION} · security-first review before merge*`;
