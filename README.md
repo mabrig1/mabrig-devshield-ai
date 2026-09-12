@@ -10,13 +10,15 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 1.1 adds the foundations expected from a serious security review product:
+Version 1.2 adds the foundations expected from a serious security review product:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
 - **Policy-as-code** with a repository-owned `.devshield.json`.
 - **SARIF 2.1.0 + JSON reports** for GitHub Code Scanning and external security pipelines.
 - **Stable fingerprints** for downstream deduplication and triage.
+- **Native dependency intelligence** using GitHub dependency review when available, including GHSA and license policy findings.
+- **Legacy-repository baselines** that distinguish new findings from accepted existing debt without hiding either from reports.
 - **Inline suppressions** for non-critical findings, with critical findings deliberately kept unsuppressible inline.
 - **Balanced, strict, and secrets-only policies**.
 - **Changed-lines, changed-files, and full-repository scan scopes**.
@@ -87,7 +89,12 @@ Create `.devshield.json` in the repository root:
     "shell-exec": "high"
   },
   "maxFileBytes": 1500000,
-  "inlineSuppressions": true
+  "inlineSuppressions": true,
+  "dependencyReview": true,
+  "dependencySeverity": "low",
+  "dependencyDenyLicenses": [],
+  "baselineFile": ".devshield-baseline.json",
+  "baselineMode": "new-only"
 }
 ```
 
@@ -108,6 +115,36 @@ Action inputs take precedence when explicitly set. `exclude-paths` is merged wit
 | `changed-lines` | Default. Scans newly added lines in changed files |
 | `changed-files` | Scans all lines in changed files |
 | `repository` | Scans tracked text files across the repository, up to `max-files` |
+
+## Dependency intelligence
+
+When a pull request supplies `github-token`, DevShield can query GitHub's dependency-review API and turn newly introduced vulnerable packages into normal DevShield findings. These findings participate in risk scoring and `fail-on` just like code findings.
+
+You can also deny licenses for newly introduced dependencies:
+
+```yaml
+with:
+  github-token: ${{ github.token }}
+  dependency-review: auto
+  dependency-severity: low
+  dependency-deny-licenses: AGPL-3.0, GPL-3.0
+```
+
+If GitHub dependency review is unavailable, DevShield warns and continues local deterministic scanning.
+
+## Finding baselines
+
+For legacy repositories, generate a reviewed fingerprint baseline with a repository-scope scan. Commit the reviewed candidate as `.devshield-baseline.json`, then use:
+
+```yaml
+with:
+  baseline-file: .devshield-baseline.json
+  baseline-mode: new-only
+```
+
+Existing baseline findings remain visible in JSON/SARIF, while only new findings contribute to the merge gate and risk score.
+
+See [Dependency Intelligence & Baselines](docs/DEPENDENCY-BASELINES.md).
 
 ## Suppressing intentional findings
 
@@ -197,18 +234,28 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 | `policy` | config or `balanced` | `balanced`, `strict`, `secrets-only` |
 | `scan-scope` | config or `changed-lines` | `changed-lines`, `changed-files`, `repository` |
 | `inline-suppressions` | config or `true` | Enable non-critical `devshield:ignore` comments |
+| `dependency-review` | config or `auto` | Use GitHub dependency review on pull requests |
+| `dependency-severity` | config or `low` | Minimum vulnerable-dependency severity to report |
+| `dependency-deny-licenses` | empty | Comma-separated SPDX licenses to reject |
+| `baseline-file` | config or `.devshield-baseline.json` | Fingerprint baseline file |
+| `baseline-mode` | config or `new-only` | `new-only`, `report`, or `off` |
 | `sarif` | `true` | Generate SARIF |
 | `report-dir` | `.devshield` | Directory for machine-readable reports |
 
 ## Outputs
 
 - `findings-count`
+- `new-findings`
+- `existing-findings`
+- `dependency-findings`
+- `dependency-review-status`
 - `risk-score`
 - `risk-level`
 - `scanned-files`
 - `ignored-findings`
 - `report-file`
 - `sarif-file`
+- `baseline-output-file`
 
 ## Risk scoring
 
@@ -254,6 +301,8 @@ The smoke suite validates:
 - inline suppression behavior
 - configuration-file policy
 - JSON/SARIF generation
+- dependency-review findings and license policy
+- baseline new-versus-existing classification
 - merge-failure thresholds
 
 ## Marketplace release
