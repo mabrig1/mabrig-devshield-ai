@@ -2,6 +2,30 @@
 
 All notable changes to **MABRIG DevShield AI** are documented here.
 
+## [1.2.0] - 2026-09-12
+
+### Added
+- Native GitHub dependency-review integration for pull requests.
+- Vulnerable dependency findings with package, ecosystem, version, license, GHSA, advisory URL, and advisory summary metadata.
+- Dependency license deny policy.
+- Configurable minimum dependency vulnerability severity.
+- Graceful fallback when GitHub dependency review is unavailable.
+- Finding baselines through `.devshield-baseline.json`.
+- `new` versus `existing` finding state.
+- `new-only`, `report`, and `off` baseline modes.
+- Generated baseline candidate report for adopting DevShield on legacy repositories.
+- New outputs for new findings, existing findings, dependency findings, dependency-review status, and baseline candidate path.
+
+### Changed
+- Merge gating and risk scoring can operate only on findings not present in the committed baseline.
+- Existing baseline findings remain visible in JSON and SARIF reports.
+- Deduplication now uses stable fingerprints, allowing multiple dependency advisories in the same manifest to remain distinct.
+- Machine-readable report schema advanced to version 2.
+- PR summaries now expose dependency-review and baseline status.
+
+### Validation
+- Smoke coverage now includes baseline adoption behavior and dependency-review fixtures in addition to the v1.1 security regression suite.
+
 ## [1.1.0] - 2026-09-12
 
 ### Added

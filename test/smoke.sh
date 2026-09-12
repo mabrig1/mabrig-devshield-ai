@@ -193,7 +193,133 @@ if [[ "$COUNT4B" -lt 1 ]]; then
   exit 1
 fi
 
-# 5) Fail threshold still blocks.
+# 5) Baselines distinguish existing findings from new merge-gated findings.
+REPO5="$TMP/baseline"
+mkdir -p "$REPO5"
+cd "$REPO5"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = 1;\n' > safe.js
+git add safe.js
+git commit -qm "baseline"
+cat > app.js <<'JS'
+export function legacyRisk(input) {
+  return eval(input);
+}
+JS
+git add app.js
+git commit -qm "add legacy risk"
+
+: > "$REPO5/out.txt"
+GITHUB_WORKSPACE="$REPO5" \
+GITHUB_OUTPUT="$REPO5/out.txt" \
+INPUT_FAIL_ON=none \
+INPUT_COMMENT=false \
+INPUT_SCAN_SCOPE=repository \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null
+BASELINE_CANDIDATE="$(assert_output "$REPO5/out.txt" baseline-output-file)"
+cp "$REPO5/$BASELINE_CANDIDATE" "$REPO5/.devshield-baseline.json"
+
+printf 'export const safe = 2;\n' > safe.js
+git add safe.js
+git commit -qm "safe follow-up"
+
+: > "$REPO5/out.txt"
+GITHUB_WORKSPACE="$REPO5" \
+GITHUB_OUTPUT="$REPO5/out.txt" \
+INPUT_FAIL_ON=none \
+INPUT_COMMENT=false \
+INPUT_SCAN_SCOPE=repository \
+INPUT_BASELINE_FILE=.devshield-baseline.json \
+INPUT_BASELINE_MODE=new-only \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null
+BASE_NEW="$(assert_output "$REPO5/out.txt" new-findings)"
+BASE_EXISTING="$(assert_output "$REPO5/out.txt" existing-findings)"
+BASE_LEVEL="$(assert_output "$REPO5/out.txt" risk-level)"
+if [[ "$BASE_NEW" != "0" || -z "$BASE_EXISTING" || "$BASE_EXISTING" -lt 1 ]]; then
+  echo "Expected baseline to classify legacy finding as existing; new=$BASE_NEW existing=$BASE_EXISTING" >&2
+  exit 1
+fi
+if [[ "$BASE_LEVEL" != "low" ]]; then
+  echo "Expected no new merge-gated risk after baseline, got $BASE_LEVEL" >&2
+  exit 1
+fi
+
+# 6) Dependency intelligence converts GitHub dependency review data into first-class findings.
+REPO6="$TMP/dependencies"
+mkdir -p "$REPO6"
+cd "$REPO6"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf '{}\n' > package.json
+git add package.json
+git commit -qm "baseline"
+cat > package.json <<'JSON'
+{
+  "dependencies": {
+    "example-risky-package": "1.0.0",
+    "example-copyleft-package": "2.0.0"
+  }
+}
+JSON
+git add package.json
+git commit -qm "dependency change"
+cat > dependency-fixture.json <<'JSON'
+[
+  {
+    "change_type": "added",
+    "manifest": "package.json",
+    "ecosystem": "npm",
+    "name": "example-risky-package",
+    "version": "1.0.0",
+    "package_url": "pkg:npm/example-risky-package@1.0.0",
+    "license": "MIT",
+    "vulnerabilities": [
+      {
+        "severity": "critical",
+        "advisory_ghsa_id": "GHSA-test-1234-5678",
+        "advisory_summary": "Test critical vulnerability",
+        "advisory_url": "https://github.com/advisories/GHSA-test-1234-5678"
+      }
+    ]
+  },
+  {
+    "change_type": "added",
+    "manifest": "package.json",
+    "ecosystem": "npm",
+    "name": "example-copyleft-package",
+    "version": "2.0.0",
+    "package_url": "pkg:npm/example-copyleft-package@2.0.0",
+    "license": "GPL-3.0",
+    "vulnerabilities": []
+  }
+]
+JSON
+
+: > "$REPO6/out.txt"
+DEVSHIELD_DEPENDENCY_REVIEW_FIXTURE="$REPO6/dependency-fixture.json" \
+GITHUB_WORKSPACE="$REPO6" \
+GITHUB_OUTPUT="$REPO6/out.txt" \
+INPUT_FAIL_ON=none \
+INPUT_COMMENT=false \
+INPUT_DEPENDENCY_REVIEW=true \
+INPUT_DEPENDENCY_DENY_LICENSES=GPL-3.0 \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null
+DEP_COUNT="$(assert_output "$REPO6/out.txt" dependency-findings)"
+DEP_STATUS="$(assert_output "$REPO6/out.txt" dependency-review-status)"
+DEP_LEVEL="$(assert_output "$REPO6/out.txt" risk-level)"
+if [[ "$DEP_COUNT" -ne 2 || "$DEP_STATUS" != "fixture" ]]; then
+  echo "Expected one vulnerable dependency plus one denied-license finding; count=$DEP_COUNT status=$DEP_STATUS" >&2
+  exit 1
+fi
+if [[ "$DEP_LEVEL" != "critical" ]]; then
+  echo "Expected critical dependency risk, got $DEP_LEVEL" >&2
+  exit 1
+fi
+
+# 7) Fail threshold still blocks.
 cd "$REPO1"
 : > "$REPO1/out.txt"
 set +e
@@ -209,4 +335,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield enhanced smoke tests passed."
+echo "DevShield v1.2 enhanced smoke tests passed."

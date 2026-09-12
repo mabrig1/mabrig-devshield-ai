@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { REDACTORS, rules } from './rules.mjs';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -93,7 +93,12 @@ function sanitizeConfig(raw) {
     ignoreCategories: Array.isArray(cfg.ignoreCategories) ? cfg.ignoreCategories.filter(x => typeof x === 'string') : [],
     severityOverrides: cfg.severityOverrides && typeof cfg.severityOverrides === 'object' ? cfg.severityOverrides : {},
     maxFileBytes: Number.isFinite(Number(cfg.maxFileBytes)) ? Number(cfg.maxFileBytes) : undefined,
-    inlineSuppressions: typeof cfg.inlineSuppressions === 'boolean' ? cfg.inlineSuppressions : undefined
+    inlineSuppressions: typeof cfg.inlineSuppressions === 'boolean' ? cfg.inlineSuppressions : undefined,
+    dependencyReview: typeof cfg.dependencyReview === 'boolean' ? cfg.dependencyReview : undefined,
+    dependencySeverity: typeof cfg.dependencySeverity === 'string' ? cfg.dependencySeverity : undefined,
+    dependencyDenyLicenses: Array.isArray(cfg.dependencyDenyLicenses) ? cfg.dependencyDenyLicenses.filter(x => typeof x === 'string') : [],
+    baselineFile: typeof cfg.baselineFile === 'string' ? cfg.baselineFile : undefined,
+    baselineMode: typeof cfg.baselineMode === 'string' ? cfg.baselineMode : undefined
   };
 }
 
@@ -122,6 +127,14 @@ const maxFileBytes = clampInt(
 const policy = normalizePolicy(nonEmptyInput('INPUT_POLICY', config.policy || 'balanced'));
 const scanScope = normalizeScanScope(nonEmptyInput('INPUT_SCAN_SCOPE', config.scanScope || 'changed-lines'));
 const inlineSuppressions = parseBool(nonEmptyInput('INPUT_INLINE_SUPPRESSIONS', String(config.inlineSuppressions ?? true)), true);
+const dependencyReviewMode = normalizeDependencyReviewMode(nonEmptyInput('INPUT_DEPENDENCY_REVIEW', config.dependencyReview === false ? 'false' : 'auto'));
+const dependencyMinSeverity = normalizeDependencySeverity(nonEmptyInput('INPUT_DEPENDENCY_SEVERITY', config.dependencySeverity || 'low'));
+const dependencyDenyLicenses = new Set([
+  ...config.dependencyDenyLicenses,
+  ...input('INPUT_DEPENDENCY_DENY_LICENSES', '').split(',').map(s => s.trim()).filter(Boolean)
+].map(s => s.toUpperCase()));
+const baselineFile = safeBaselineFile(nonEmptyInput('INPUT_BASELINE_FILE', config.baselineFile || '.devshield-baseline.json'));
+const baselineMode = normalizeBaselineMode(nonEmptyInput('INPUT_BASELINE_MODE', config.baselineMode || 'new-only'));
 const excludePaths = [
   ...config.excludePaths,
   ...input('INPUT_EXCLUDE_PATHS', '').split(',').map(s => s.trim()).filter(Boolean)
@@ -148,6 +161,27 @@ function normalizePolicy(value) {
 function normalizeScanScope(value) {
   const v = String(value || '').toLowerCase();
   return ['changed-lines', 'changed-files', 'repository'].includes(v) ? v : 'changed-lines';
+}
+
+function normalizeDependencyReviewMode(value) {
+  const v = String(value || '').toLowerCase();
+  return ['auto', 'true', 'false'].includes(v) ? v : 'auto';
+}
+
+function normalizeDependencySeverity(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'moderate') return 'medium';
+  return severityRank[v] ? v : 'low';
+}
+
+function normalizeBaselineMode(value) {
+  const v = String(value || '').toLowerCase();
+  return ['new-only', 'report', 'off'].includes(v) ? v : 'new-only';
+}
+
+function safeBaselineFile(value) {
+  const rel = String(value || '').trim();
+  return rel && safeRelative(rel) ? rel : '.devshield-baseline.json';
 }
 
 function safeReportDir(value) {
@@ -384,11 +418,193 @@ function scanFile(rel, addedLines = null) {
 function dedupeFindings(findings) {
   const seen = new Set();
   return findings.filter(f => {
-    const key = `${f.rule}\0${f.file}\0${f.line}`;
+    const key = f.fingerprint || `${f.rule}\0${f.file}\0${f.line}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+
+function loadBaselineFingerprints() {
+  if (baselineMode === 'off') return { fingerprints: new Set(), status: 'off' };
+  const abs = path.join(workspace, baselineFile);
+  if (!fs.existsSync(abs)) return { fingerprints: new Set(), status: 'missing' };
+  try {
+    const raw = JSON.parse(fs.readFileSync(abs, 'utf8'));
+    const values = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.fingerprints)
+        ? raw.fingerprints
+        : Array.isArray(raw?.findings)
+          ? raw.findings.map(f => typeof f === 'string' ? f : f?.fingerprint)
+          : [];
+    return {
+      fingerprints: new Set(values.filter(x => typeof x === 'string' && x.length >= 8)),
+      status: 'loaded'
+    };
+  } catch (err) {
+    console.log(`::warning title=DevShield baseline::Could not parse ${baselineFile}: ${escapeCommand(err.message || String(err))}`);
+    return { fingerprints: new Set(), status: 'invalid' };
+  }
+}
+
+function applyBaseline(findings, baseline) {
+  return findings.map(f => ({
+    ...f,
+    status: baselineMode !== 'off' && baseline.fingerprints.has(f.fingerprint) ? 'existing' : 'new'
+  }));
+}
+
+function dependencySeverity(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'moderate') return 'medium';
+  return severityRank[v] ? v : 'medium';
+}
+
+function dependencyFindingRule(severity, kind = 'vulnerability') {
+  if (kind === 'license') {
+    return rule(
+      'dependency-license-denied',
+      'medium',
+      'dependencies',
+      /./,
+      'A newly introduced dependency uses a denied license.',
+      'CWE-1104',
+      'Replace the dependency or update the repository license policy after legal/security review.'
+    );
+  }
+  return rule(
+    'dependency-vulnerability',
+    severity,
+    'dependencies',
+    /./,
+    'A newly introduced dependency has a known security vulnerability.',
+    'CWE-1104',
+    'Upgrade or replace the dependency with a version that is not affected by the advisory.'
+  );
+}
+
+async function dependencyReviewFindings() {
+  const result = {
+    findings: [],
+    status: 'disabled',
+    dependenciesReviewed: 0
+  };
+
+  if (policy === 'secrets-only' || dependencyReviewMode === 'false') return result;
+
+  const fixturePath = process.env.DEVSHIELD_DEPENDENCY_REVIEW_FIXTURE;
+  let changes = null;
+
+  if (fixturePath) {
+    try {
+      const fixtureAbs = path.isAbsolute(fixturePath) ? fixturePath : path.join(workspace, fixturePath);
+      changes = JSON.parse(fs.readFileSync(fixtureAbs, 'utf8'));
+      result.status = 'fixture';
+    } catch (err) {
+      console.log(`::warning title=DevShield dependency review::Could not read dependency fixture: ${escapeCommand(err.message || String(err))}`);
+      result.status = 'unavailable';
+      return result;
+    }
+  } else {
+    const repo = event?.repository?.full_name || process.env.GITHUB_REPOSITORY || '';
+    const base = event?.pull_request?.base?.sha;
+    const head = event?.pull_request?.head?.sha;
+    const shouldAttempt = dependencyReviewMode === 'true' || dependencyReviewMode === 'auto';
+
+    if (!shouldAttempt || !repo || !base || !head || !token) {
+      result.status = dependencyReviewMode === 'true' ? 'skipped' : 'unavailable';
+      if (dependencyReviewMode === 'true') {
+        console.log('::warning title=DevShield dependency review::Dependency review requires a pull_request event and github-token.');
+      }
+      return result;
+    }
+
+    const [owner, name] = repo.split('/');
+    if (!owner || !name) {
+      result.status = 'unavailable';
+      return result;
+    }
+
+    const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/dependency-graph/compare/${base}...${head}`;
+    try {
+      const response = await fetch(endpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2026-03-10'
+        }
+      });
+      if (!response.ok) {
+        result.status = 'unavailable';
+        console.log(`::warning title=DevShield dependency review::GitHub dependency review unavailable (HTTP ${response.status}). Deterministic source scanning continues.`);
+        return result;
+      }
+      changes = await response.json();
+      result.status = 'success';
+    } catch (err) {
+      result.status = 'unavailable';
+      console.log(`::warning title=DevShield dependency review::GitHub dependency review failed: ${escapeCommand(err.message || String(err))}`);
+      return result;
+    }
+  }
+
+  if (!Array.isArray(changes)) {
+    result.status = 'unavailable';
+    return result;
+  }
+
+  const minRank = severityRank[dependencyMinSeverity] || severityRank.low;
+  for (const dep of changes) {
+    if (!dep || dep.change_type === 'removed') continue;
+    result.dependenciesReviewed++;
+
+    const manifest = typeof dep.manifest === 'string' && safeRelative(dep.manifest) ? dep.manifest : 'dependency-manifest';
+    const name = dep.name || dep.package_url || 'dependency';
+    const version = dep.version || 'unknown';
+    const ecosystem = dep.ecosystem || 'unknown';
+    const license = dep.license || null;
+    const identity = dep.package_url || `${ecosystem}:${name}@${version}`;
+
+    if (license && dependencyDenyLicenses.has(String(license).toUpperCase())) {
+      const ruleDef = dependencyFindingRule('medium', 'license');
+      if (policyAllows(ruleDef)) {
+        const finding = makeFinding(ruleDef, manifest, 1, `${identity}:license:${license}`, {
+          message: `${name}@${version} introduces denied license ${license}.`
+        });
+        finding.dependency = { name, version, ecosystem, license, packageUrl: dep.package_url || null, changeType: dep.change_type || 'added' };
+        result.findings.push(finding);
+      }
+    }
+
+    for (const vuln of Array.isArray(dep.vulnerabilities) ? dep.vulnerabilities : []) {
+      const severity = dependencySeverity(vuln?.severity);
+      if ((severityRank[severity] || 0) < minRank) continue;
+      const advisory = vuln?.advisory_ghsa_id || 'GitHub advisory';
+      const summary = vuln?.advisory_summary ? `: ${vuln.advisory_summary}` : '';
+      const ruleDef = dependencyFindingRule(severity);
+      if (!policyAllows(ruleDef)) continue;
+      const finding = makeFinding(ruleDef, manifest, 1, `${identity}:${advisory}`, {
+        severity,
+        message: `${name}@${version} introduces ${advisory}${summary}`
+      });
+      finding.dependency = {
+        name,
+        version,
+        ecosystem,
+        license,
+        packageUrl: dep.package_url || null,
+        changeType: dep.change_type || 'added',
+        advisoryGhsaId: vuln?.advisory_ghsa_id || null,
+        advisoryUrl: vuln?.advisory_url || null,
+        advisorySummary: vuln?.advisory_summary || null
+      };
+      result.findings.push(finding);
+    }
+  }
+
+  return result;
 }
 
 function riskFrom(findings) {
@@ -430,33 +646,47 @@ function categoryCounts(findings) {
   return counts;
 }
 
-function buildMarkdown(files, findings, risk, ai, ignored) {
-  const counts = severityCounts(findings);
-  const categories = Object.entries(categoryCounts(findings)).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const rows = findings.slice(0, 30).map(f =>
+function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview) {
+  const counts = severityCounts(gateFindings);
+  const categories = Object.entries(categoryCounts(gateFindings)).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const newCount = findings.filter(f => f.status === 'new').length;
+  const existingCount = findings.filter(f => f.status === 'existing').length;
+  const dependencyCount = findings.filter(f => f.category === 'dependencies').length;
+  const rows = gateFindings.slice(0, 30).map(f =>
     `| ${f.severity.toUpperCase()} | \`${f.rule}\` | \`${f.file}:${f.line}\` | ${f.message.replace(/\|/g, '\\|')} |`
   ).join('\n');
   const categoryText = categories.length ? categories.map(([k, v]) => `${k} **${v}**`).join(' · ') : 'none';
+  const baselineText = baselineMode === 'off'
+    ? 'off'
+    : `${baseline.status} · mode \`${baselineMode}\``;
+  const dependencyText = `${dependencyReview.status} · reviewed ${dependencyReview.dependenciesReviewed} changed dependencies · findings ${dependencyCount}`;
+
   return `${COMMENT_MARKER}
 ## 🛡️ MABRIG DevShield AI
 
 **Risk:** ${risk.level.toUpperCase()} · **Score:** ${risk.score}/100 · **Files scanned:** ${files.length} · **Scope:** \`${scanScope}\` · **Policy:** \`${policy}\`
 
-Critical **${counts.critical}** · High **${counts.high}** · Medium **${counts.medium}** · Low **${counts.low}** · Suppressed **${ignored}**
+**Findings:** total **${findings.length}** · new **${newCount}** · baseline-existing **${existingCount}** · merge-gated **${gateFindings.length}** · suppressed **${ignored}**
 
-**Categories:** ${categoryText}
+Critical **${counts.critical}** · High **${counts.high}** · Medium **${counts.medium}** · Low **${counts.low}**
 
-${findings.length ? `| Severity | Rule | Location | Finding |
+**Categories in merge gate:** ${categoryText}
+
+**Dependency intelligence:** ${dependencyText}
+
+**Baseline:** ${baselineText}
+
+${gateFindings.length ? `| Severity | Rule | Location | Finding |
 |---|---|---|---|
-${rows}` : '✅ No deterministic security findings were detected in the selected scope.'}
+${rows}` : '✅ No new findings meet the active merge-gate policy.'}
 
-${findings.length > 30 ? `_${findings.length - 30} additional findings omitted from this comment._\n\n` : ''}${ai ? `### AI-assisted review
+${gateFindings.length > 30 ? `_${gateFindings.length - 30} additional merge-gated findings omitted from this comment._\n\n` : ''}${existingCount && baselineMode === 'new-only' ? `_${existingCount} finding(s) match the committed baseline and remain visible in machine-readable reports without blocking this pull request._\n\n` : ''}${ai ? `### AI-assisted review
 
 ${ai}
 
 ` : ''}### Reports
 
-Machine-readable JSON${writeSarif ? ' and SARIF' : ''} reports were generated in \`${reportDir}/\`.
+Machine-readable JSON${writeSarif ? ' and SARIF' : ''} reports plus a baseline candidate were generated in \`${reportDir}/\`.
 
 ---
 *MABRIG DevShield AI v${VERSION} · security-first review before merge*`;
@@ -471,7 +701,9 @@ function makeSarif(findings) {
     'public-secret-env': { id: 'public-secret-env', severity: 'critical', category: 'secrets', message: 'Secret-looking value is exposed through NEXT_PUBLIC_.', cwe: 'CWE-200', remediation: 'Move the value server-side and rotate it.' },
     'floating-dependency': { id: 'floating-dependency', severity: 'medium', category: 'supply-chain', message: 'A package dependency uses a floating version.', cwe: 'CWE-829', remediation: 'Pin a bounded version range.' },
     'package-registry-credential': { id: 'package-registry-credential', severity: 'critical', category: 'secrets', message: 'Package registry credentials appear committed.', cwe: 'CWE-798', remediation: 'Rotate the credential and load it from a secret store.' },
-    'pwn-request-checkout': { id: 'pwn-request-checkout', severity: 'critical', category: 'ci-security', message: 'Privileged workflow checks out untrusted PR code.', cwe: 'CWE-829', remediation: 'Do not execute untrusted PR code under pull_request_target.' }
+    'pwn-request-checkout': { id: 'pwn-request-checkout', severity: 'critical', category: 'ci-security', message: 'Privileged workflow checks out untrusted PR code.', cwe: 'CWE-829', remediation: 'Do not execute untrusted PR code under pull_request_target.' },
+    'dependency-vulnerability': { id: 'dependency-vulnerability', severity: 'high', category: 'dependencies', message: 'A newly introduced dependency has a known security vulnerability.', cwe: 'CWE-1104', remediation: 'Upgrade or replace the dependency with a non-affected version.' },
+    'dependency-license-denied': { id: 'dependency-license-denied', severity: 'medium', category: 'dependencies', message: 'A newly introduced dependency uses a denied license.', cwe: 'CWE-1104', remediation: 'Replace the dependency or review the license policy.' }
   };
   for (const [k, v] of Object.entries(synthetic)) ruleDefs.set(k, v);
 
@@ -519,20 +751,27 @@ function makeSarif(findings) {
           severity: f.severity,
           category: f.category,
           cwe: f.cwe,
-          confidence: f.confidence
+          confidence: f.confidence,
+          baselineState: f.status || 'new',
+          dependency: f.dependency || undefined
         }
       }))
     }]
   };
 }
 
-function writeReports(files, findings, risk, ignored) {
+function writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview) {
   const absDir = path.join(workspace, reportDir);
   fs.mkdirSync(absDir, { recursive: true });
   const reportFile = path.join(absDir, 'devshield-report.json');
   const sarifFile = path.join(absDir, 'devshield.sarif');
+  const baselineOutputFile = path.join(absDir, 'devshield-baseline.json');
+  const newFindings = findings.filter(f => f.status === 'new');
+  const existingFindings = findings.filter(f => f.status === 'existing');
+  const dependencyFindings = findings.filter(f => f.category === 'dependencies');
+
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     tool: { name: 'MABRIG DevShield AI', version: VERSION },
     generatedAt: new Date().toISOString(),
     repository: event?.repository?.full_name || process.env.GITHUB_REPOSITORY || '',
@@ -542,24 +781,65 @@ function writeReports(files, findings, risk, ignored) {
       scanScope,
       configFile: loadedConfig.path || null,
       excludedPaths: excludePaths,
-      inlineSuppressions
+      inlineSuppressions,
+      dependencyReview: dependencyReviewMode,
+      dependencySeverity: dependencyMinSeverity,
+      dependencyDenyLicenses: [...dependencyDenyLicenses],
+      baselineFile,
+      baselineMode
+    },
+    baseline: {
+      status: baseline.status,
+      fingerprintsLoaded: baseline.fingerprints.size
+    },
+    dependencyReview: {
+      status: dependencyReview.status,
+      dependenciesReviewed: dependencyReview.dependenciesReviewed,
+      findings: dependencyFindings.length
     },
     summary: {
       filesScanned: files.length,
       findings: findings.length,
+      newFindings: newFindings.length,
+      existingFindings: existingFindings.length,
+      gatedFindings: gateFindings.length,
+      dependencyFindings: dependencyFindings.length,
       ignoredFindings: ignored,
       riskScore: risk.score,
       riskLevel: risk.level,
-      severity: severityCounts(findings),
-      categories: categoryCounts(findings)
+      severity: severityCounts(gateFindings),
+      categories: categoryCounts(gateFindings)
     },
     findings
   };
+
+  const baselineCandidate = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    tool: { name: 'MABRIG DevShield AI', version: VERSION },
+    scanScope,
+    note: scanScope === 'repository'
+      ? 'Repository-scope baseline candidate.'
+      : 'For a complete initial baseline, rerun DevShield with scan-scope=repository before committing this file.',
+    fingerprints: findings.map(f => f.fingerprint),
+    findings: findings.map(f => ({
+      fingerprint: f.fingerprint,
+      rule: f.rule,
+      severity: f.severity,
+      category: f.category,
+      file: f.file,
+      line: f.line
+    }))
+  };
+
   fs.writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
+  fs.writeFileSync(baselineOutputFile, `${JSON.stringify(baselineCandidate, null, 2)}\n`);
   if (writeSarif) fs.writeFileSync(sarifFile, `${JSON.stringify(makeSarif(findings), null, 2)}\n`);
+
   return {
     reportFile: path.relative(workspace, reportFile).replace(/\\/g, '/'),
-    sarifFile: writeSarif ? path.relative(workspace, sarifFile).replace(/\\/g, '/') : ''
+    sarifFile: writeSarif ? path.relative(workspace, sarifFile).replace(/\\/g, '/') : '',
+    baselineOutputFile: path.relative(workspace, baselineOutputFile).replace(/\\/g, '/')
   };
 }
 
@@ -660,32 +940,47 @@ for (const file of files) {
   findings.push(...scanned.findings);
   ignored += scanned.ignored;
 }
+
+const dependencyReview = await dependencyReviewFindings();
+findings.push(...dependencyReview.findings);
 findings = dedupeFindings(findings);
 
-const risk = riskFrom(findings);
-emitAnnotations(findings);
-const reports = writeReports(files, findings, risk, ignored);
-const ai = await aiReview(filteredDiff(files), findings);
-const markdown = buildMarkdown(files, findings, risk, ai, ignored);
+const baseline = loadBaselineFingerprints();
+findings = applyBaseline(findings, baseline);
+const newFindings = findings.filter(f => f.status === 'new');
+const existingFindings = findings.filter(f => f.status === 'existing');
+const gateFindings = baselineMode === 'new-only' ? newFindings : findings;
+const dependencyFindings = findings.filter(f => f.category === 'dependencies');
+
+const risk = riskFrom(gateFindings);
+emitAnnotations(gateFindings);
+const reports = writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview);
+const ai = await aiReview(filteredDiff(files), gateFindings);
+const markdown = buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview);
 
 if (summaryFile) fs.appendFileSync(summaryFile, `${markdown}\n`);
 await postPrComment(markdown);
 
 setOutput('findings-count', findings.length);
+setOutput('new-findings', newFindings.length);
+setOutput('existing-findings', existingFindings.length);
+setOutput('dependency-findings', dependencyFindings.length);
+setOutput('dependency-review-status', dependencyReview.status);
 setOutput('risk-score', risk.score);
 setOutput('risk-level', risk.level);
 setOutput('scanned-files', files.length);
 setOutput('ignored-findings', ignored);
 setOutput('report-file', reports.reportFile);
 setOutput('sarif-file', reports.sarifFile);
+setOutput('baseline-output-file', reports.baselineOutputFile);
 
-console.log(`MABRIG DevShield AI v${VERSION}: ${findings.length} findings, ${ignored} suppressed, risk ${risk.level} (${risk.score}/100), ${files.length} files scanned.`);
+console.log(`MABRIG DevShield AI v${VERSION}: ${findings.length} total findings (${newFindings.length} new, ${existingFindings.length} baseline-existing), ${dependencyFindings.length} dependency findings, ${ignored} suppressed, risk ${risk.level} (${risk.score}/100), ${files.length} files scanned.`);
 
 if (failOn !== 'none') {
   const threshold = severityRank[failOn] || severityRank.critical;
-  const highest = findings.reduce((m, f) => Math.max(m, severityRank[f.severity] || 0), 0);
+  const highest = gateFindings.reduce((m, f) => Math.max(m, severityRank[f.severity] || 0), 0);
   if (highest >= threshold) {
-    console.error(`DevShield policy failed: highest severity meets fail-on=${failOn}.`);
+    console.error(`DevShield policy failed: highest merge-gated severity meets fail-on=${failOn}.`);
     process.exitCode = 1;
   }
 }
