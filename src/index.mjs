@@ -178,3 +178,183 @@ function listChangedFiles() {
     .filter(rel => !isExcluded(rel))
     .filter(isTextCandidate)
     .slice(0, maxFiles);
+}
+
+function listRepositoryFiles() {
+  let text = '';
+  try { text = git(['ls-files']); } catch { return []; }
+  return text.split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(safeRelative)
+    .filter(rel => !isExcluded(rel))
+    .filter(isTextCandidate)
+    .slice(0, maxFiles);
+}
+
+function parseAddedLines() {
+  const range = getDiffRange();
+  const map = new Map();
+  if (!range) return map;
+  let diff = '';
+  try { diff = git(['diff', '--no-color', '--no-ext-diff', '--unified=0', range]); } catch { return map; }
+
+  let current = '';
+  let newLine = 0;
+  for (const raw of diff.split(/\r?\n/)) {
+    if (raw.startsWith('+++ ')) {
+      const target = raw.slice(4).trim();
+      if (target === '/dev/null') current = '';
+      else if (target.startsWith('b/')) current = target.slice(2);
+      else current = target;
+      if (current && (!safeRelative(current) || isExcluded(current))) current = '';
+      continue;
+    }
+    if (raw.startsWith('@@ ')) {
+      const match = raw.match(/\+(\d+)(?:,(\d+))?/);
+      newLine = match ? Number.parseInt(match[1], 10) : 0;
+      continue;
+    }
+    if (!current || !newLine) continue;
+    if (raw.startsWith('+') && !raw.startsWith('+++')) {
+      if (!map.has(current)) map.set(current, new Set());
+      map.get(current).add(newLine);
+      newLine++;
+    } else if (raw.startsWith('-') && !raw.startsWith('---')) {
+      // deleted lines do not advance the new-file line number
+    } else {
+      newLine++;
+    }
+  }
+  return map;
+}
+
+
+
+function rule(id, severity, category, re, message, cwe, remediation, extra = {}) {
+  return { id, severity, category, re, message, cwe, remediation, ...extra };
+}
+
+function policyAllows(ruleDef) {
+  if (ignoreRules.has(ruleDef.id) || ignoreCategories.has(ruleDef.category)) return false;
+  if (policy === 'secrets-only') return ruleDef.category === 'secrets';
+  if (ruleDef.strictOnly && policy !== 'strict') return false;
+  return true;
+}
+
+function effectiveSeverity(ruleDef) {
+  const override = String(severityOverrides[ruleDef.id] || '').toLowerCase();
+  return severityRank[override] ? override : ruleDef.severity;
+}
+
+function inlineSuppressed(lines, index, ruleId, severity) {
+  if (!inlineSuppressions || severity === 'critical') return false;
+  const candidates = [lines[index], index > 0 ? lines[index - 1] : ''].filter(Boolean);
+  for (const line of candidates) {
+    const match = line.match(/devshield:ignore(?:\s+([A-Za-z0-9_,.*-]+))?/i);
+    if (!match) continue;
+    if (!match[1]) return true;
+    const ids = match[1].split(',').map(s => s.trim());
+    if (ids.includes('*') || ids.includes(ruleId)) return true;
+  }
+  return false;
+}
+
+function fingerprint(ruleId, file, lineText) {
+  const normalized = String(lineText || '').trim().replace(/\s+/g, ' ').slice(0, 300);
+  return crypto.createHash('sha256').update(`${ruleId}\0${file}\0${normalized}`).digest('hex').slice(0, 32);
+}
+
+function makeFinding(ruleDef, rel, lineNo, lineText, overrides = {}) {
+  const severity = overrides.severity || effectiveSeverity(ruleDef);
+  return {
+    rule: ruleDef.id,
+    severity,
+    category: ruleDef.category,
+    file: rel,
+    line: lineNo,
+    message: overrides.message || ruleDef.message,
+    cwe: ruleDef.cwe,
+    remediation: ruleDef.remediation,
+    confidence: overrides.confidence || 'high',
+    fingerprint: fingerprint(ruleDef.id, rel, lineText)
+  };
+}
+
+function readFileLimited(abs) {
+  try {
+    const stat = fs.statSync(abs);
+    if (!stat.isFile()) return '';
+    const fd = fs.openSync(abs, 'r');
+    try {
+      const len = Math.min(stat.size, maxFileBytes);
+      const buffer = Buffer.alloc(len);
+      fs.readSync(fd, buffer, 0, len, 0);
+      if (buffer.includes(0)) return '';
+      return buffer.toString('utf8');
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    return '';
+  }
+}
+
+function scanFile(rel, addedLines = null) {
+  const abs = path.join(workspace, rel);
+  const content = readFileLimited(abs);
+  if (!content) return { findings: [], ignored: 0 };
+  const findings = [];
+  let ignored = 0;
+  const lines = content.split(/\r?\n/);
+  const base = path.basename(rel);
+
+  const shouldScanLine = (lineNo) => !addedLines || addedLines.has(lineNo);
+
+  if (/^\.env(?:\.|$)/.test(base) && !/\.example$/i.test(rel)) {
+    const envRule = rule('tracked-env', 'critical', 'secrets', /./, 'A real .env-style file is tracked.', 'CWE-798', 'Remove it from Git history, rotate exposed credentials, and keep only an example file.');
+    if (policyAllows(envRule)) findings.push(makeFinding(envRule, rel, 1, '.env'));
+  }
+
+  if (/^(?:\.npmrc|\.pypirc)$/i.test(base)) {
+    for (let i = 0; i < lines.length; i++) {
+      if (!shouldScanLine(i + 1)) continue;
+      if (/(?:_authToken|password)\s*=\s*[^\s${][^\s]*/i.test(lines[i])) {
+        const special = rule('package-registry-credential', 'critical', 'secrets', /./, 'Package registry credentials appear to be committed.', 'CWE-798', 'Rotate the credential and load it from a secret/environment variable.');
+        if (policyAllows(special)) findings.push(makeFinding(special, rel, i + 1, lines[i]));
+      }
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineNo = i + 1;
+    if (!shouldScanLine(lineNo)) continue;
+    const line = lines[i];
+    for (const ruleDef of rules) {
+      if (!policyAllows(ruleDef)) continue;
+      if (isDocumentationFile(rel) && ruleDef.category !== 'secrets') continue;
+      if (ruleDef.file && !ruleDef.file.test(rel.replace(/\\/g, '/'))) continue;
+      ruleDef.re.lastIndex = 0;
+      if (!ruleDef.re.test(line)) continue;
+      const sev = effectiveSeverity(ruleDef);
+      if (inlineSuppressed(lines, i, ruleDef.id, sev)) { ignored++; continue; }
+      findings.push(makeFinding(ruleDef, rel, lineNo, line));
+    }
+
+    if (/NEXT_PUBLIC_[A-Z0-9_]*(?:SECRET|PRIVATE|TOKEN|API_KEY)[A-Z0-9_]*\s*=/i.test(line)) {
+      const special = rule('public-secret-env', 'critical', 'secrets', /./, 'A secret-looking value uses NEXT_PUBLIC_, which exposes it to browser bundles.', 'CWE-200', 'Move the value to a server-only environment variable and rotate it if exposed.');
+      if (policyAllows(special)) findings.push(makeFinding(special, rel, lineNo, line));
+    }
+
+    if (base === 'package.json' && /"[^"]+"\s*:\s*"(?:\*|latest)"/.test(line)) {
+      const special = rule('floating-dependency', 'medium', 'supply-chain', /./, 'A package dependency uses a floating version.', 'CWE-829', 'Pin a bounded version range and commit the lockfile.');
+      if (policyAllows(special)) {
+        if (inlineSuppressed(lines, i, special.id, special.severity)) ignored++;
+        else findings.push(makeFinding(special, rel, lineNo, line));
+      }
+    }
+  }
+
+  // Contextual workflow check: pull_request_target + checkout of PR head is especially dangerous.
+  if (/\.github\/workflows\/.*\.ya?ml$/i.test(rel) && (!addedLines || [...addedLines].some(n => n >= 1))) {
+    if (/\bpull_request_target\s*:/.test(content) &&
