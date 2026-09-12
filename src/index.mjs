@@ -425,6 +425,188 @@ function dedupeFindings(findings) {
   });
 }
 
+
+function loadBaselineFingerprints() {
+  if (baselineMode === 'off') return { fingerprints: new Set(), status: 'off' };
+  const abs = path.join(workspace, baselineFile);
+  if (!fs.existsSync(abs)) return { fingerprints: new Set(), status: 'missing' };
+  try {
+    const raw = JSON.parse(fs.readFileSync(abs, 'utf8'));
+    const values = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.fingerprints)
+        ? raw.fingerprints
+        : Array.isArray(raw?.findings)
+          ? raw.findings.map(f => typeof f === 'string' ? f : f?.fingerprint)
+          : [];
+    return {
+      fingerprints: new Set(values.filter(x => typeof x === 'string' && x.length >= 8)),
+      status: 'loaded'
+    };
+  } catch (err) {
+    console.log(`::warning title=DevShield baseline::Could not parse ${baselineFile}: ${escapeCommand(err.message || String(err))}`);
+    return { fingerprints: new Set(), status: 'invalid' };
+  }
+}
+
+function applyBaseline(findings, baseline) {
+  return findings.map(f => ({
+    ...f,
+    status: baselineMode !== 'off' && baseline.fingerprints.has(f.fingerprint) ? 'existing' : 'new'
+  }));
+}
+
+function dependencySeverity(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'moderate') return 'medium';
+  return severityRank[v] ? v : 'medium';
+}
+
+function dependencyFindingRule(severity, kind = 'vulnerability') {
+  if (kind === 'license') {
+    return rule(
+      'dependency-license-denied',
+      'medium',
+      'dependencies',
+      /./,
+      'A newly introduced dependency uses a denied license.',
+      'CWE-1104',
+      'Replace the dependency or update the repository license policy after legal/security review.'
+    );
+  }
+  return rule(
+    'dependency-vulnerability',
+    severity,
+    'dependencies',
+    /./,
+    'A newly introduced dependency has a known security vulnerability.',
+    'CWE-1104',
+    'Upgrade or replace the dependency with a version that is not affected by the advisory.'
+  );
+}
+
+async function dependencyReviewFindings() {
+  const result = {
+    findings: [],
+    status: 'disabled',
+    dependenciesReviewed: 0
+  };
+
+  if (policy === 'secrets-only' || dependencyReviewMode === 'false') return result;
+
+  const fixturePath = process.env.DEVSHIELD_DEPENDENCY_REVIEW_FIXTURE;
+  let changes = null;
+
+  if (fixturePath) {
+    try {
+      const fixtureAbs = path.isAbsolute(fixturePath) ? fixturePath : path.join(workspace, fixturePath);
+      changes = JSON.parse(fs.readFileSync(fixtureAbs, 'utf8'));
+      result.status = 'fixture';
+    } catch (err) {
+      console.log(`::warning title=DevShield dependency review::Could not read dependency fixture: ${escapeCommand(err.message || String(err))}`);
+      result.status = 'unavailable';
+      return result;
+    }
+  } else {
+    const repo = event?.repository?.full_name || process.env.GITHUB_REPOSITORY || '';
+    const base = event?.pull_request?.base?.sha;
+    const head = event?.pull_request?.head?.sha;
+    const shouldAttempt = dependencyReviewMode === 'true' || dependencyReviewMode === 'auto';
+
+    if (!shouldAttempt || !repo || !base || !head || !token) {
+      result.status = dependencyReviewMode === 'true' ? 'skipped' : 'unavailable';
+      if (dependencyReviewMode === 'true') {
+        console.log('::warning title=DevShield dependency review::Dependency review requires a pull_request event and github-token.');
+      }
+      return result;
+    }
+
+    const [owner, name] = repo.split('/');
+    if (!owner || !name) {
+      result.status = 'unavailable';
+      return result;
+    }
+
+    const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/dependency-graph/compare/${base}...${head}`;
+    try {
+      const response = await fetch(endpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2026-03-10'
+        }
+      });
+      if (!response.ok) {
+        result.status = 'unavailable';
+        console.log(`::warning title=DevShield dependency review::GitHub dependency review unavailable (HTTP ${response.status}). Deterministic source scanning continues.`);
+        return result;
+      }
+      changes = await response.json();
+      result.status = 'success';
+    } catch (err) {
+      result.status = 'unavailable';
+      console.log(`::warning title=DevShield dependency review::GitHub dependency review failed: ${escapeCommand(err.message || String(err))}`);
+      return result;
+    }
+  }
+
+  if (!Array.isArray(changes)) {
+    result.status = 'unavailable';
+    return result;
+  }
+
+  const minRank = severityRank[dependencyMinSeverity] || severityRank.low;
+  for (const dep of changes) {
+    if (!dep || dep.change_type === 'removed') continue;
+    result.dependenciesReviewed++;
+
+    const manifest = typeof dep.manifest === 'string' && safeRelative(dep.manifest) ? dep.manifest : 'dependency-manifest';
+    const name = dep.name || dep.package_url || 'dependency';
+    const version = dep.version || 'unknown';
+    const ecosystem = dep.ecosystem || 'unknown';
+    const license = dep.license || null;
+    const identity = dep.package_url || `${ecosystem}:${name}@${version}`;
+
+    if (license && dependencyDenyLicenses.has(String(license).toUpperCase())) {
+      const ruleDef = dependencyFindingRule('medium', 'license');
+      if (policyAllows(ruleDef)) {
+        const finding = makeFinding(ruleDef, manifest, 1, `${identity}:license:${license}`, {
+          message: `${name}@${version} introduces denied license ${license}.`
+        });
+        finding.dependency = { name, version, ecosystem, license, packageUrl: dep.package_url || null, changeType: dep.change_type || 'added' };
+        result.findings.push(finding);
+      }
+    }
+
+    for (const vuln of Array.isArray(dep.vulnerabilities) ? dep.vulnerabilities : []) {
+      const severity = dependencySeverity(vuln?.severity);
+      if ((severityRank[severity] || 0) < minRank) continue;
+      const advisory = vuln?.advisory_ghsa_id || 'GitHub advisory';
+      const summary = vuln?.advisory_summary ? `: ${vuln.advisory_summary}` : '';
+      const ruleDef = dependencyFindingRule(severity);
+      if (!policyAllows(ruleDef)) continue;
+      const finding = makeFinding(ruleDef, manifest, 1, `${identity}:${advisory}`, {
+        severity,
+        message: `${name}@${version} introduces ${advisory}${summary}`
+      });
+      finding.dependency = {
+        name,
+        version,
+        ecosystem,
+        license,
+        packageUrl: dep.package_url || null,
+        changeType: dep.change_type || 'added',
+        advisoryGhsaId: vuln?.advisory_ghsa_id || null,
+        advisoryUrl: vuln?.advisory_url || null,
+        advisorySummary: vuln?.advisory_summary || null
+      };
+      result.findings.push(finding);
+    }
+  }
+
+  return result;
+}
+
 function riskFrom(findings) {
   let score = 0;
   const perRuleFile = new Map();
