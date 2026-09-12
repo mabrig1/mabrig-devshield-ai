@@ -1,0 +1,13 @@
+{
+  "policy": "balanced",
+  "scanScope": "changed-lines",
+  "excludePaths": [
+    "test/**",
+    "src/rules.mjs"
+  ],
+  "ignoreRules": [],
+  "ignoreCategories": [],
+  "severityOverrides": {},
+  "maxFileBytes": 1500000,
+  "inlineSuppressions": true
+}
