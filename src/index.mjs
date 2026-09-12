@@ -41,13 +41,23 @@ function git(args) {
   return execFileSync('git', args, { cwd: workspace, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 20 * 1024 * 1024 }).trimEnd();
 }
 
+function commitExists(sha) {
+  if (!sha || !/^[a-f0-9]{7,64}$/i.test(String(sha))) return false;
+  try {
+    git(['cat-file', '-e', `${sha}^{commit}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getDiffRange() {
   const base = event?.pull_request?.base?.sha;
   const head = event?.pull_request?.head?.sha;
-  if (base && head) return `${base}...${head}`;
+  if (commitExists(base) && commitExists(head)) return `${base}...${head}`;
   const before = event?.before;
   const after = event?.after;
-  if (before && after && !/^0+$/.test(before)) return `${before}...${after}`;
+  if (before && after && !/^0+$/.test(before) && commitExists(before) && commitExists(after)) return `${before}...${after}`;
   try {
     git(['rev-parse', 'HEAD^']);
     return 'HEAD^...HEAD';
