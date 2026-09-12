@@ -1,19 +1,27 @@
 # MABRIG DevShield AI
 
-**Security-first pull request review before merge.**
+**Security-first pull request review before merge — deterministic, diff-aware, policy-driven, and AI-optional.**
 
-MABRIG DevShield AI is a GitHub Action that scans changed files for exposed secrets, risky configuration, insecure code patterns, floating dependencies, and supply-chain weaknesses. It works without an AI key. Teams can optionally add an OpenRouter key for a second-pass AI review after DevShield redacts common secret formats from the diff.
+MABRIG DevShield AI is a dependency-free GitHub Action that reviews pull-request changes for exposed secrets, injection risks, unsafe configuration, GitHub Actions supply-chain weaknesses, infrastructure-as-code mistakes, and container privilege risks.
 
-## Features
+It runs without an AI key. Teams can optionally add OpenRouter for a second-pass contextual review after DevShield filters excluded paths and redacts common secret formats.
 
-- Deterministic secret scanning with no external API required
-- Pull request security annotations and job summaries
-- Optional OpenRouter AI review using `openrouter/auto`
-- Redaction before AI analysis
-- Configurable fail threshold
-- Configurable path exclusions for intentional fixtures/generated files
-- No build step or third-party runtime dependencies in the Action itself
-- Works with JavaScript/TypeScript, Python, PHP, Java, Go, configuration files, and most text-based repositories
+## Why DevShield
+
+DevShield is built around one question: **does this change make the repository meaningfully riskier?**
+
+Version 1.1 adds the foundations expected from a serious security review product:
+
+- **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
+- **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
+- **Policy-as-code** with a repository-owned `.devshield.json`.
+- **SARIF 2.1.0 + JSON reports** for GitHub Code Scanning and external security pipelines.
+- **Stable fingerprints** for downstream deduplication and triage.
+- **Inline suppressions** for non-critical findings, with critical findings deliberately kept unsuppressible inline.
+- **Balanced, strict, and secrets-only policies**.
+- **Changed-lines, changed-files, and full-repository scan scopes**.
+- **Prompt-injection-resistant AI handoff** that treats the diff as untrusted data and redacts secrets before external analysis.
+- **No Action runtime dependencies** beyond Node.js already present on GitHub-hosted runners.
 
 ## Quick start
 
@@ -35,15 +43,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
       - uses: mabrig1/mabrig-devshield-ai@v1
         with:
           github-token: ${{ github.token }}
           fail-on: high
 ```
 
-### Optional AI review
+The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.
 
-Add `OPENROUTER_API_KEY` in **Repository settings → Secrets and variables → Actions**, then:
+## Optional AI review
+
+Store `OPENROUTER_API_KEY` in **Repository settings → Secrets and variables → Actions**:
 
 ```yaml
       - uses: mabrig1/mabrig-devshield-ai@v1
@@ -54,49 +65,206 @@ Add `OPENROUTER_API_KEY` in **Repository settings → Secrets and variables → 
           fail-on: high
 ```
 
-### Excluding intentional fixtures
+AI mode is optional. Deterministic scanning, scoring, JSON reporting, SARIF output, annotations, and merge gating work without any AI provider.
 
-Security test fixtures sometimes contain fake keys or deliberately unsafe code. Exclude those paths explicitly instead of weakening the scanner:
+## Policy-as-code
+
+Create `.devshield.json` in the repository root:
+
+```json
+{
+  "policy": "balanced",
+  "scanScope": "changed-lines",
+  "excludePaths": [
+    "fixtures/**",
+    "generated/**"
+  ],
+  "ignoreRules": [
+    "debug-mode"
+  ],
+  "ignoreCategories": [],
+  "severityOverrides": {
+    "shell-exec": "high"
+  },
+  "maxFileBytes": 1500000,
+  "inlineSuppressions": true
+}
+```
+
+Action inputs take precedence when explicitly set. `exclude-paths` is merged with configuration-file exclusions.
+
+### Policies
+
+| Policy | Purpose |
+|---|---|
+| `balanced` | High-signal default checks for normal pull requests |
+| `strict` | Balanced checks plus lower-confidence hardening rules |
+| `secrets-only` | Credential and secret exposure checks only |
+
+### Scan scopes
+
+| Scope | Behavior |
+|---|---|
+| `changed-lines` | Default. Scans newly added lines in changed files |
+| `changed-files` | Scans all lines in changed files |
+| `repository` | Scans tracked text files across the repository, up to `max-files` |
+
+## Suppressing intentional findings
+
+For non-critical findings, use a narrow inline suppression:
+
+```js
+// devshield:ignore shell-exec
+exec("controlled-static-command");
+```
+
+Or suppress all non-critical rules on the next/current line:
+
+```js
+// devshield:ignore
+```
+
+Critical findings cannot be suppressed inline. If a critical detector is intentionally triggered by a fixture, exclude the fixture path or explicitly ignore the rule in `.devshield.json` so the exception is visible in repository policy.
+
+## SARIF and GitHub Code Scanning
+
+DevShield writes:
+
+- `.devshield/devshield-report.json`
+- `.devshield/devshield.sarif`
+
+To upload SARIF into GitHub Code Scanning:
 
 ```yaml
-          exclude-paths: 'test/**,fixtures/**'
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write
+
+steps:
+  - uses: actions/checkout@v7
+    with:
+      fetch-depth: 0
+
+  - id: devshield
+    uses: mabrig1/mabrig-devshield-ai@v1
+    with:
+      github-token: ${{ github.token }}
+      fail-on: high
+
+  - name: Upload DevShield SARIF
+    if: always()
+    uses: github/codeql-action/upload-sarif@v4
+    with:
+      sarif_file: ${{ steps.devshield.outputs.sarif-file }}
 ```
+
+SARIF availability in GitHub depends on the repository and GitHub security features enabled for that repository.
+
+## What DevShield checks
+
+### Secrets and credentials
+Private keys, GitHub tokens, AI-provider keys, AWS access keys, Stripe live keys, Slack tokens, Google API keys, SendGrid keys, credential-bearing URLs, package-registry credentials, tracked `.env` files, browser-exposed secret-like `NEXT_PUBLIC_` variables, and strict-mode generic hardcoded secrets.
+
+### Injection and unsafe execution
+Dynamic `eval`, shell execution, interpolated shell commands, Python `os.system`, `subprocess(..., shell=True)`, unsafe pickle deserialization, unsafe YAML loading, request-built SQL, DOM HTML sinks, and React `dangerouslySetInnerHTML`.
+
+### Authentication, transport, and configuration
+Disabled TLS verification, Python `verify=False`, disabled JWT signature verification, wildcard CORS, debug mode, MD5/SHA-1 hardening checks, and unsafe file permissions.
+
+### GitHub Actions and software supply chain
+Moving Action refs, strict-mode mutable Action refs, `permissions: write-all`, risky `pull_request_target`, direct interpolation of untrusted PR/event text into `run:`, privileged PR-head checkout patterns, remote `curl|sh`/`wget|sh`, and floating npm dependency declarations.
+
+### IaC and containers
+World-open CIDRs, wildcard IAM actions/resources, public Terraform ACLs, Kubernetes privileged mode, host networking, root UID, privilege escalation, Docker root users, privileged Docker execution, host networking in Compose, and all-capability grants.
+
+See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 
 ## Inputs
 
 | Input | Default | Purpose |
 |---|---|---|
-| `github-token` | empty | Posts/updates PR review comment |
+| `github-token` | empty | Posts/updates the PR summary comment |
 | `openrouter-api-key` | empty | Enables AI-assisted second pass |
 | `model` | `openrouter/auto` | OpenRouter model slug |
 | `fail-on` | `critical` | `critical`, `high`, `medium`, `low`, `none` |
-| `comment` | `true` | Post a PR comment |
-| `max-files` | `80` | Maximum changed text files scanned |
-| `exclude-paths` | empty | Comma-separated path globs to skip, such as `test/**,fixtures/**` |
+| `comment` | `true` | Post/update a PR comment |
+| `max-files` | `120` | Maximum text files selected for scanning |
+| `max-file-bytes` | engine/config default | Per-file read cap |
+| `exclude-paths` | empty | Comma-separated exclusion globs |
+| `config-file` | `.devshield.json` | JSON policy file |
+| `policy` | config or `balanced` | `balanced`, `strict`, `secrets-only` |
+| `scan-scope` | config or `changed-lines` | `changed-lines`, `changed-files`, `repository` |
+| `inline-suppressions` | config or `true` | Enable non-critical `devshield:ignore` comments |
+| `sarif` | `true` | Generate SARIF |
+| `report-dir` | `.devshield` | Directory for machine-readable reports |
 
 ## Outputs
 
 - `findings-count`
 - `risk-score`
 - `risk-level`
+- `scanned-files`
+- `ignored-findings`
+- `report-file`
+- `sarif-file`
 
-## What DevShield checks
+## Risk scoring
 
-DevShield's deterministic MVP includes checks for private keys, GitHub/API/AWS/Stripe live keys, tracked `.env` files, secrets exposed through `NEXT_PUBLIC_`, disabled TLS verification, wildcard CORS, risky shell execution, dynamic `eval`, possible request-built SQL, moving-branch GitHub Actions references, and floating npm dependency versions.
+DevShield scores findings by severity and caps repeated hits from the same rule/file so one noisy pattern does not dominate the score. The risk level always reflects the highest active severity:
 
-## Security model
+- `critical`
+- `high`
+- `medium`
+- `low`
 
-The deterministic scan runs on the GitHub-hosted runner. If AI mode is enabled, DevShield sends only a truncated, redacted diff to OpenRouter. Do not enable AI mode for repositories whose policy prohibits source code from leaving the runner.
+Use `fail-on` independently from the numerical score to define the merge gate.
+
+## Security and privacy model
+
+Deterministic scanning runs on the GitHub Actions runner.
+
+When AI mode is enabled:
+
+1. Excluded paths are not sent to the AI reviewer.
+2. The diff is truncated.
+3. Common secret formats are redacted.
+4. The model receives a system instruction to treat code, comments, and diff text as **untrusted data**, not instructions.
+5. Deterministic findings are passed without source snippets.
+
+Repositories with source-code residency restrictions should leave AI mode disabled.
+
+## Design philosophy
+
+DevShield is designed to complement—not impersonate—full SAST, dependency-vulnerability intelligence, secret-validity checking, and human AppSec review. Its advantage is a fast, transparent merge-risk layer that works immediately, produces portable output, and can grow into deeper repository-context analysis without forcing teams to send code to an LLM.
+
+See [`docs/COMPETITIVE-ROADMAP.md`](docs/COMPETITIVE-ROADMAP.md) for the next expansion targets.
+
+## Development
+
+```bash
+npm test
+```
+
+The smoke suite validates:
+
+- critical secret and workflow findings
+- diff-aware noise reduction
+- inline suppression behavior
+- configuration-file policy
+- JSON/SARIF generation
+- merge-failure thresholds
 
 ## Marketplace release
 
-1. Confirm the **DevShield CI** workflow passes.
-2. Create a release such as `v1.0.0`.
-3. Select **Publish this Action to the GitHub Marketplace** during release.
-4. Maintain a stable major tag (`v1`) that points to the current compatible release.
+1. Confirm **DevShield CI** passes.
+2. Publish the release.
+3. Keep the stable `v1` compatibility ref pointed at the latest backward-compatible v1 release.
+4. Validate the Action from a separate repository using `mabrig1/mabrig-devshield-ai@v1`.
 
 ## Commercial edition
 
-The companion **MABRIG DevShield AI GitHub App** adds managed AI reviews, centralized policy, usage tiers, installation-level entitlement, and GitHub Marketplace subscriptions. The commercial backend is maintained separately from this public Action repository.
+The companion **MABRIG DevShield AI GitHub App** can add managed repository context, centralized organization policy, dependency/advisory intelligence, installation-level entitlement, analytics, remediation workflows, and GitHub Marketplace subscriptions while the public Action remains the transparent self-managed/BYOK foundation.
 
 © 2026 MABRIG Digital Media.
