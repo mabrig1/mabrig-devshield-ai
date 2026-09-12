@@ -10,7 +10,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 1.2 adds the foundations expected from a serious security review product:
+Version 1.3 adds the foundations expected from a serious security review product:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -24,6 +24,7 @@ Version 1.2 adds the foundations expected from a serious security review product
 - **Changed-lines, changed-files, and full-repository scan scopes**.
 - **Prompt-injection-resistant AI handoff** that treats the diff as untrusted data and redacts secrets before external analysis.
 - **No Action runtime dependencies** beyond Node.js already present on GitHub-hosted runners.
+- **Local staged-change CLI** so the same policy can stop risky code before commit, not only in CI.
 
 ## Quick start
 
@@ -53,6 +54,23 @@ jobs:
 ```
 
 The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.
+
+## Local CLI and pre-commit protection
+
+Run DevShield before code reaches GitHub:
+
+```bash
+npm run scan
+```
+
+The local CLI defaults to staged changes and `fail-on=high`. It reads the **Git index snapshot**, not the mutable working-tree copy.
+
+```bash
+npm run scan -- --strict --fail-on medium
+npm run scan -- --repository --fail-on high
+```
+
+See [Local DevShield CLI](docs/LOCAL-CLI.md) and [examples/pre-commit.sh](examples/pre-commit.sh).
 
 ## Optional AI review
 
@@ -115,6 +133,7 @@ Action inputs take precedence when explicitly set. `exclude-paths` is merged wit
 | `changed-lines` | Default. Scans newly added lines in changed files |
 | `changed-files` | Scans all lines in changed files |
 | `repository` | Scans tracked text files across the repository, up to `max-files` |
+| `staged` | Local CLI/pre-commit mode; scans newly added lines from the Git index |
 
 ## Dependency intelligence
 
@@ -303,6 +322,7 @@ The smoke suite validates:
 - JSON/SARIF generation
 - dependency-review findings and license policy
 - baseline new-versus-existing classification
+- staged-index CLI blocking and safe staged changes
 - merge-failure thresholds
 
 ## Marketplace release
