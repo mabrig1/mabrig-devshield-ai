@@ -349,9 +349,19 @@ function readFileLimited(abs) {
   }
 }
 
+function readStagedFile(rel) {
+  try {
+    const content = git(['show', `:${rel}`]);
+    if (!content || content.includes('\0')) return '';
+    return content.length > maxFileBytes ? content.slice(0, maxFileBytes) : content;
+  } catch {
+    return '';
+  }
+}
+
 function scanFile(rel, addedLines = null) {
   const abs = path.join(workspace, rel);
-  const content = readFileLimited(abs);
+  const content = scanScope === 'staged' ? readStagedFile(rel) : readFileLimited(abs);
   if (!content) return { findings: [], ignored: 0 };
   const findings = [];
   let ignored = 0;
