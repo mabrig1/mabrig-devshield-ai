@@ -701,7 +701,9 @@ function makeSarif(findings) {
     'public-secret-env': { id: 'public-secret-env', severity: 'critical', category: 'secrets', message: 'Secret-looking value is exposed through NEXT_PUBLIC_.', cwe: 'CWE-200', remediation: 'Move the value server-side and rotate it.' },
     'floating-dependency': { id: 'floating-dependency', severity: 'medium', category: 'supply-chain', message: 'A package dependency uses a floating version.', cwe: 'CWE-829', remediation: 'Pin a bounded version range.' },
     'package-registry-credential': { id: 'package-registry-credential', severity: 'critical', category: 'secrets', message: 'Package registry credentials appear committed.', cwe: 'CWE-798', remediation: 'Rotate the credential and load it from a secret store.' },
-    'pwn-request-checkout': { id: 'pwn-request-checkout', severity: 'critical', category: 'ci-security', message: 'Privileged workflow checks out untrusted PR code.', cwe: 'CWE-829', remediation: 'Do not execute untrusted PR code under pull_request_target.' }
+    'pwn-request-checkout': { id: 'pwn-request-checkout', severity: 'critical', category: 'ci-security', message: 'Privileged workflow checks out untrusted PR code.', cwe: 'CWE-829', remediation: 'Do not execute untrusted PR code under pull_request_target.' },
+    'dependency-vulnerability': { id: 'dependency-vulnerability', severity: 'high', category: 'dependencies', message: 'A newly introduced dependency has a known security vulnerability.', cwe: 'CWE-1104', remediation: 'Upgrade or replace the dependency with a non-affected version.' },
+    'dependency-license-denied': { id: 'dependency-license-denied', severity: 'medium', category: 'dependencies', message: 'A newly introduced dependency uses a denied license.', cwe: 'CWE-1104', remediation: 'Replace the dependency or review the license policy.' }
   };
   for (const [k, v] of Object.entries(synthetic)) ruleDefs.set(k, v);
 
@@ -749,20 +751,27 @@ function makeSarif(findings) {
           severity: f.severity,
           category: f.category,
           cwe: f.cwe,
-          confidence: f.confidence
+          confidence: f.confidence,
+          baselineState: f.status || 'new',
+          dependency: f.dependency || undefined
         }
       }))
     }]
   };
 }
 
-function writeReports(files, findings, risk, ignored) {
+function writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview) {
   const absDir = path.join(workspace, reportDir);
   fs.mkdirSync(absDir, { recursive: true });
   const reportFile = path.join(absDir, 'devshield-report.json');
   const sarifFile = path.join(absDir, 'devshield.sarif');
+  const baselineOutputFile = path.join(absDir, 'devshield-baseline.json');
+  const newFindings = findings.filter(f => f.status === 'new');
+  const existingFindings = findings.filter(f => f.status === 'existing');
+  const dependencyFindings = findings.filter(f => f.category === 'dependencies');
+
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     tool: { name: 'MABRIG DevShield AI', version: VERSION },
     generatedAt: new Date().toISOString(),
     repository: event?.repository?.full_name || process.env.GITHUB_REPOSITORY || '',
@@ -772,24 +781,65 @@ function writeReports(files, findings, risk, ignored) {
       scanScope,
       configFile: loadedConfig.path || null,
       excludedPaths: excludePaths,
-      inlineSuppressions
+      inlineSuppressions,
+      dependencyReview: dependencyReviewMode,
+      dependencySeverity: dependencyMinSeverity,
+      dependencyDenyLicenses: [...dependencyDenyLicenses],
+      baselineFile,
+      baselineMode
+    },
+    baseline: {
+      status: baseline.status,
+      fingerprintsLoaded: baseline.fingerprints.size
+    },
+    dependencyReview: {
+      status: dependencyReview.status,
+      dependenciesReviewed: dependencyReview.dependenciesReviewed,
+      findings: dependencyFindings.length
     },
     summary: {
       filesScanned: files.length,
       findings: findings.length,
+      newFindings: newFindings.length,
+      existingFindings: existingFindings.length,
+      gatedFindings: gateFindings.length,
+      dependencyFindings: dependencyFindings.length,
       ignoredFindings: ignored,
       riskScore: risk.score,
       riskLevel: risk.level,
-      severity: severityCounts(findings),
-      categories: categoryCounts(findings)
+      severity: severityCounts(gateFindings),
+      categories: categoryCounts(gateFindings)
     },
     findings
   };
+
+  const baselineCandidate = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    tool: { name: 'MABRIG DevShield AI', version: VERSION },
+    scanScope,
+    note: scanScope === 'repository'
+      ? 'Repository-scope baseline candidate.'
+      : 'For a complete initial baseline, rerun DevShield with scan-scope=repository before committing this file.',
+    fingerprints: findings.map(f => f.fingerprint),
+    findings: findings.map(f => ({
+      fingerprint: f.fingerprint,
+      rule: f.rule,
+      severity: f.severity,
+      category: f.category,
+      file: f.file,
+      line: f.line
+    }))
+  };
+
   fs.writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
+  fs.writeFileSync(baselineOutputFile, `${JSON.stringify(baselineCandidate, null, 2)}\n`);
   if (writeSarif) fs.writeFileSync(sarifFile, `${JSON.stringify(makeSarif(findings), null, 2)}\n`);
+
   return {
     reportFile: path.relative(workspace, reportFile).replace(/\\/g, '/'),
-    sarifFile: writeSarif ? path.relative(workspace, sarifFile).replace(/\\/g, '/') : ''
+    sarifFile: writeSarif ? path.relative(workspace, sarifFile).replace(/\\/g, '/') : '',
+    baselineOutputFile: path.relative(workspace, baselineOutputFile).replace(/\\/g, '/')
   };
 }
 
@@ -890,32 +940,47 @@ for (const file of files) {
   findings.push(...scanned.findings);
   ignored += scanned.ignored;
 }
+
+const dependencyReview = await dependencyReviewFindings();
+findings.push(...dependencyReview.findings);
 findings = dedupeFindings(findings);
 
-const risk = riskFrom(findings);
-emitAnnotations(findings);
-const reports = writeReports(files, findings, risk, ignored);
-const ai = await aiReview(filteredDiff(files), findings);
-const markdown = buildMarkdown(files, findings, risk, ai, ignored);
+const baseline = loadBaselineFingerprints();
+findings = applyBaseline(findings, baseline);
+const newFindings = findings.filter(f => f.status === 'new');
+const existingFindings = findings.filter(f => f.status === 'existing');
+const gateFindings = baselineMode === 'new-only' ? newFindings : findings;
+const dependencyFindings = findings.filter(f => f.category === 'dependencies');
+
+const risk = riskFrom(gateFindings);
+emitAnnotations(gateFindings);
+const reports = writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview);
+const ai = await aiReview(filteredDiff(files), gateFindings);
+const markdown = buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview);
 
 if (summaryFile) fs.appendFileSync(summaryFile, `${markdown}\n`);
 await postPrComment(markdown);
 
 setOutput('findings-count', findings.length);
+setOutput('new-findings', newFindings.length);
+setOutput('existing-findings', existingFindings.length);
+setOutput('dependency-findings', dependencyFindings.length);
+setOutput('dependency-review-status', dependencyReview.status);
 setOutput('risk-score', risk.score);
 setOutput('risk-level', risk.level);
 setOutput('scanned-files', files.length);
 setOutput('ignored-findings', ignored);
 setOutput('report-file', reports.reportFile);
 setOutput('sarif-file', reports.sarifFile);
+setOutput('baseline-output-file', reports.baselineOutputFile);
 
-console.log(`MABRIG DevShield AI v${VERSION}: ${findings.length} findings, ${ignored} suppressed, risk ${risk.level} (${risk.score}/100), ${files.length} files scanned.`);
+console.log(`MABRIG DevShield AI v${VERSION}: ${findings.length} total findings (${newFindings.length} new, ${existingFindings.length} baseline-existing), ${dependencyFindings.length} dependency findings, ${ignored} suppressed, risk ${risk.level} (${risk.score}/100), ${files.length} files scanned.`);
 
 if (failOn !== 'none') {
   const threshold = severityRank[failOn] || severityRank.critical;
-  const highest = findings.reduce((m, f) => Math.max(m, severityRank[f.severity] || 0), 0);
+  const highest = gateFindings.reduce((m, f) => Math.max(m, severityRank[f.severity] || 0), 0);
   if (highest >= threshold) {
-    console.error(`DevShield policy failed: highest severity meets fail-on=${failOn}.`);
+    console.error(`DevShield policy failed: highest merge-gated severity meets fail-on=${failOn}.`);
     process.exitCode = 1;
   }
 }
