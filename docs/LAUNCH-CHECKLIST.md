@@ -8,10 +8,10 @@
 - [x] Validate the deterministic scanner and local CLI
 - [x] Add dependency intelligence, finding baselines, SARIF/JSON reporting, and staged-change protection
 - [x] Keep the stable `v1` compatibility branch aligned with the current v1 code
-- [x] Confirm DevShield v1.3 CI passes on GitHub
+- [x] Confirm DevShield v1.4 CI passes on GitHub
 - [x] Add production customer-path certification for safe-pass and unsafe-block behavior
 - [x] Add a guarded release workflow for GitHub Release publication and `v1` promotion
-- [ ] Publish GitHub Release `v1.3.0`
+- [ ] Publish GitHub Release `v1.4.0`
 - [ ] Accept GitHub Marketplace Developer Agreement
 - [ ] Publish the Action to Marketplace
 - [x] Add final support/contact details (`mabrig@mabrigkorie.org`)

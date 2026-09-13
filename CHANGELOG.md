@@ -2,6 +2,25 @@
 
 All notable changes to **MABRIG DevShield AI** are documented here.
 
+## [1.4.0] - 2026-09-13
+
+### Added
+- Opt-in DevShield Cloud export bridge for managed dashboards, analytics, usage metering, and paid entitlements.
+- New `cloud-api-url`, `cloud-token`, and `cloud-required` Action inputs.
+- New `cloud-export-status` output.
+- Versioned Cloud ingestion payload with repository/revision metadata, scan summary, finding fingerprints, rule metadata, and dependency advisory metadata.
+
+### Privacy and security
+- Cloud export is disabled by default.
+- Only HTTPS ingestion endpoints are accepted.
+- Cloud credentials are sent only in the Authorization header and are never included in the payload.
+- Source code, source snippets, and diff text are not included in the Cloud payload.
+- Paid deployments can set `cloud-required: true` to fail closed when managed export is unavailable.
+
+### Validation
+- Smoke coverage captures the exact Cloud payload and verifies that source markers, Cloud tokens, and diff content are absent.
+- Existing deterministic, dependency, baseline, CLI, and merge-gate regression coverage remains active.
+
 ## [1.3.0] - 2026-09-12
 
 ### Added

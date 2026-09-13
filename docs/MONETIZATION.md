@@ -67,7 +67,7 @@ Trigger: compliance, onboarding, higher limits, reporting and priority support.
 
 The public Action should be the top of the funnel:
 
-1. Publish v1.3.0 to GitHub Marketplace.
+1. Publish v1.4.0 to GitHub Marketplace.
 2. Make installation take less than five minutes.
 3. Add a clear "Need us to configure it for you?" commercial call-to-action.
 4. Recruit the first 25 design partners through developer communities and direct outreach.
