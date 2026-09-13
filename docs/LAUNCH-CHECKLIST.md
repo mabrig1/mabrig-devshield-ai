@@ -14,11 +14,14 @@
 - [ ] Publish GitHub Release `v1.3.0`
 - [ ] Accept GitHub Marketplace Developer Agreement
 - [ ] Publish the Action to Marketplace
-- [ ] Add final support/contact details
+- [x] Add final support/contact details (`mabrig@mabrigkorie.org`)
+- [x] Add immediate paid implementation/security-hardening offers
+- [x] Add commercial pricing, privacy notice and service terms
 - [ ] Validate the Marketplace listing from a separate customer/test repository
 
 ## Phase 2 — GitHub App
-- [ ] Create or select a GitHub organization that will own the commercial App
+- [ ] Create the **MABRIG Technologies** GitHub organization that will own the commercial App
+- [ ] Build acquisition funnel toward at least 100 GitHub App installations before paid-plan submission
 - [ ] Enable organization 2FA requirement and verify the publisher domain
 - [ ] Create GitHub App with minimum repository permissions
 - [ ] Deploy the private commercial backend
@@ -32,7 +35,7 @@
 - [ ] Acquire the installation threshold required by GitHub before paid listing submission
 - [ ] Prepare logo, feature card, and screenshots
 - [ ] Submit publisher/listing verification when eligible
-- [ ] Create Free, Starter, Pro, and Team pricing plans using GitHub-supported billing options
+- [ ] Create Community, Solo, Pro, Team and Business pricing plans using GitHub-supported billing options
 - [ ] Complete financial onboarding
 
 ## Remaining production hardening for the commercial service
