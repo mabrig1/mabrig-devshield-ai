@@ -1,0 +1,96 @@
+name: Production Certification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  customer-path-certification:
+    name: Customer path certification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Create safe staged customer change
+        run: |
+          mkdir -p .certification
+          printf 'export const productionSafe = true;\n' > .certification/safe.js
+          git add .certification/safe.js
+
+      - name: Verify public v1 accepts safe staged code
+        id: safe
+        uses: mabrig1/mabrig-devshield-ai@v1
+        with:
+          fail-on: high
+          comment: false
+          scan-scope: staged
+          dependency-review: false
+          report-dir: .devshield-cert-safe
+
+      - name: Assert safe result
+        env:
+          SAFE_FINDINGS: ${{ steps.safe.outputs.findings-count }}
+          SAFE_REPORT: ${{ steps.safe.outputs.report-file }}
+        run: |
+          test "${SAFE_FINDINGS}" = "0"
+          test -n "${SAFE_REPORT}"
+          test -s "${SAFE_REPORT}"
+
+      - name: Replace safe fixture with intentionally unsafe staged change
+        run: |
+          git reset -q -- .certification/safe.js
+          rm -f .certification/safe.js
+          cat > .certification/risky.js <<'JS'
+          export function unsafeExecution(userInput) {
+            return eval(userInput);
+          }
+          JS
+          TOKEN="$(printf '%s%s%s' 'gh' 'p_' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')"
+          printf 'export const leakedToken = "%s";\n' "${TOKEN}" >> .certification/risky.js
+          git add .certification/risky.js
+
+      - name: Verify public v1 blocks unsafe staged code
+        id: risky
+        continue-on-error: true
+        uses: mabrig1/mabrig-devshield-ai@v1
+        with:
+          fail-on: high
+          comment: false
+          scan-scope: staged
+          dependency-review: false
+          report-dir: .devshield-cert-risky
+
+      - name: Assert unsafe result is blocked
+        env:
+          RISKY_OUTCOME: ${{ steps.risky.outcome }}
+        run: |
+          if [ "${RISKY_OUTCOME}" != "failure" ]; then
+            echo "DevShield v1 did not block the intentionally unsafe staged customer change." >&2
+            exit 1
+          fi
+          test -s .devshield-cert-risky/devshield-report.json
+
+      - name: Certification summary
+        run: |
+          {
+            echo '## DevShield production certification'
+            echo '- Regression suite: PASS'
+            echo '- Public v1 safe staged customer path: PASS'
+            echo '- Public v1 unsafe staged gate: PASS (blocked as expected)'
+          } >> "$GITHUB_STEP_SUMMARY"
