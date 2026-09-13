@@ -1,6 +1,6 @@
 name: 'MABRIG DevShield AI'
 description: 'Security-first pull request review with diff-aware checks, dependency intelligence, baselines, SARIF, policy-as-code, and optional AI analysis.'
-author: 'MABRIG Digital Media'
+author: 'MABRIG Technologies'
 inputs:
   github-token:
     description: 'GitHub token used for PR comments and optional GitHub dependency review.'

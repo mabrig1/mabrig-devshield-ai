@@ -4,6 +4,8 @@
 
 MABRIG DevShield AI is a dependency-free GitHub Action that reviews pull-request changes for exposed secrets, injection risks, unsafe configuration, GitHub Actions supply-chain weaknesses, infrastructure-as-code mistakes, and container privilege risks.
 
+**Developed and maintained by MABRIG Technologies.** For paid installation, security hardening, team rollout or managed support, contact **mabrig@mabrigkorie.org**. See [Pricing & Packaging](docs/PRICING.md) and the [Monetization Plan](docs/MONETIZATION.md).
+
 It runs without an AI key. Teams can optionally add OpenRouter for a second-pass contextual review after DevShield filters excluded paths and redacts common secret formats.
 
 ## Why DevShield
@@ -332,8 +334,18 @@ The smoke suite validates:
 3. Keep the stable `v1` compatibility ref pointed at the latest backward-compatible v1 release.
 4. Validate the Action from a separate repository using `mabrig1/mabrig-devshield-ai@v1`.
 
-## Commercial edition
+## Professional services and commercial edition
 
-The companion **MABRIG DevShield AI GitHub App** can add managed repository context, centralized organization policy, dependency/advisory intelligence, installation-level entitlement, analytics, remediation workflows, and GitHub Marketplace subscriptions while the public Action remains the transparent self-managed/BYOK foundation.
+The public Action and CLI remain useful, transparent and self-managed. MABRIG Technologies monetizes DevShield through:
 
-© 2026 MABRIG Digital Media.
+- **DevShield Launch Setup** — installation, baseline, merge gates, SARIF and policy tuning
+- **Security Hardening Sprint** — multi-repository hardening, dependency/license policy and remediation reporting
+- **Team Security Rollout** — shared policy, CI deployment and developer onboarding
+- **Managed Security Retainer** — ongoing triage, policy tuning, reporting and priority support
+- **DevShield Cloud / GitHub App** — planned managed repository context, organization policy, analytics, remediation workflows and Marketplace subscriptions
+
+See [docs/PRICING.md](docs/PRICING.md), [SUPPORT.md](SUPPORT.md), [PRIVACY.md](PRIVACY.md) and [TERMS.md](TERMS.md).
+
+**Sales & support:** mabrig@mabrigkorie.org
+
+© 2026 MABRIG Technologies.
