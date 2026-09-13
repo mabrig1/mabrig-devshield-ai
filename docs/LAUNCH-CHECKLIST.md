@@ -5,19 +5,24 @@
 - [x] Replace placeholder repository references in README/workflow examples
 - [x] Add self-test workflow
 - [x] Add security policy and contribution/community files
-- [x] Validate deterministic scanner locally
-- [x] Push files and confirm GitHub-hosted CI passes
-- [ ] Create `v1.0.0` release and stable `v1` tag
+- [x] Validate the deterministic scanner and local CLI
+- [x] Add dependency intelligence, finding baselines, SARIF/JSON reporting, and staged-change protection
+- [x] Keep the stable `v1` compatibility branch aligned with the current v1 code
+- [x] Confirm DevShield v1.3 CI passes on GitHub
+- [x] Add production customer-path certification for safe-pass and unsafe-block behavior
+- [x] Add a guarded release workflow for GitHub Release publication and `v1` promotion
+- [ ] Publish GitHub Release `v1.3.0`
 - [ ] Accept GitHub Marketplace Developer Agreement
 - [ ] Publish the Action to Marketplace
-- [ ] Add final support contact details
+- [ ] Add final support/contact details
+- [ ] Validate the Marketplace listing from a separate customer/test repository
 
 ## Phase 2 — GitHub App
 - [ ] Create or select a GitHub organization that will own the commercial App
 - [ ] Enable organization 2FA requirement and verify the publisher domain
 - [ ] Create GitHub App with minimum repository permissions
-- [ ] Deploy the private commercial backend on Vercel
-- [ ] Configure MongoDB Atlas
+- [ ] Deploy the private commercial backend
+- [ ] Configure the production database
 - [ ] Configure `marketplace_purchase`, installation, and pull-request webhooks
 - [x] Handle purchased/changed/cancelled Marketplace plan events in code
 - [x] Add delivery-ID idempotency
@@ -30,7 +35,7 @@
 - [ ] Create Free, Starter, Pro, and Team pricing plans using GitHub-supported billing options
 - [ ] Complete financial onboarding
 
-## Remaining production hardening
+## Remaining production hardening for the commercial service
 - [ ] Rate limiting and abuse protection
 - [ ] Retry/dead-letter strategy for downstream AI/API failures
 - [ ] Structured logs and alerting
