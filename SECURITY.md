@@ -4,7 +4,7 @@
 
 Please do not open a public issue for a suspected vulnerability that could expose credentials, customer data, or a bypass in DevShield's security checks.
 
-Use GitHub Private Vulnerability Reporting on this repository when enabled. If it is not available, contact the publisher through the support contact listed on the GitHub Marketplace listing.
+Use GitHub Private Vulnerability Reporting on this repository when enabled. If it is not available, contact MABRIG Technologies at **mabrig@mabrigkorie.org**.
 
 Include the affected version, reproduction steps, expected impact, and any safe proof-of-concept details. Do not include real secrets or third-party customer source code.
 
