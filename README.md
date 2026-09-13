@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 1.3 adds the foundations expected from a serious security review product:
+Version 1.4 adds the foundations expected from a serious security review product and an opt-in bridge to managed DevShield Cloud:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -27,6 +27,7 @@ Version 1.3 adds the foundations expected from a serious security review product
 - **Prompt-injection-resistant AI handoff** that treats the diff as untrusted data and redacts secrets before external analysis.
 - **No Action runtime dependencies** beyond Node.js already present on GitHub-hosted runners.
 - **Local staged-change CLI** so the same policy can stop risky code before commit, not only in CI.
+- **Privacy-safe DevShield Cloud bridge** for paid dashboards, analytics, usage metering and organization features without exporting source snippets or diff text.
 
 ## Quick start
 
@@ -88,6 +89,26 @@ Store `OPENROUTER_API_KEY` in **Repository settings → Secrets and variables �
 ```
 
 AI mode is optional. Deterministic scanning, scoring, JSON reporting, SARIF output, annotations, and merge gating work without any AI provider.
+
+## Optional DevShield Cloud
+
+DevShield v1.4 can export structured scan metadata to a managed DevShield Cloud endpoint while keeping source code and diff text inside the customer's runner.
+
+```yaml
+      - id: devshield
+        uses: mabrig1/mabrig-devshield-ai@v1
+        with:
+          github-token: ${{ github.token }}
+          fail-on: high
+          cloud-api-url: https://<managed-devshield-cloud-host>/api/v1/scans
+          cloud-token: ${{ secrets.DEVSHIELD_CLOUD_TOKEN }}
+```
+
+Cloud export is disabled by default. The exported payload contains finding/risk metadata, fingerprints, file/line locations and dependency advisory metadata, but **not source code, source snippets, diff text, GitHub tokens or the Cloud token**.
+
+Use `cloud-required: true` when a paid/regulated deployment should fail if managed ingestion is unavailable.
+
+See [DevShield Cloud Integration Contract](docs/CLOUD-INTEGRATION.md).
 
 ## Policy-as-code
 
@@ -262,6 +283,9 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 | `baseline-mode` | config or `new-only` | `new-only`, `report`, or `off` |
 | `sarif` | `true` | Generate SARIF |
 | `report-dir` | `.devshield` | Directory for machine-readable reports |
+| `cloud-api-url` | empty | Optional HTTPS DevShield Cloud ingestion endpoint |
+| `cloud-token` | empty | Optional managed installation token stored as a secret |
+| `cloud-required` | `false` | Fail if configured Cloud ingestion cannot complete |
 
 ## Outputs
 
@@ -277,6 +301,7 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 - `report-file`
 - `sarif-file`
 - `baseline-output-file`
+- `cloud-export-status`
 
 ## Risk scoring
 
@@ -302,6 +327,8 @@ When AI mode is enabled:
 5. Deterministic findings are passed without source snippets.
 
 Repositories with source-code residency restrictions should leave AI mode disabled.
+
+DevShield Cloud export is a separate opt-in path. Its payload contains structured findings and metadata but excludes source code, source snippets, diff text and authentication tokens. See [docs/CLOUD-INTEGRATION.md](docs/CLOUD-INTEGRATION.md).
 
 ## Design philosophy
 
