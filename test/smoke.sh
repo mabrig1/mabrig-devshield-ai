@@ -354,7 +354,64 @@ printf 'export const safe = 2;\n' > app.js
 git add app.js
 node "$ACTION_ROOT/bin/devshield.mjs" --staged --fail-on high --no-sarif >/dev/null
 
-# 8) Fail threshold still blocks.
+# 8) Cloud export is opt-in, structured, and does not contain source snippets or the cloud token.
+REPO8="$TMP/cloud"
+mkdir -p "$REPO8"
+cd "$REPO8"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = true;\n' > base.js
+git add base.js
+git commit -qm "baseline"
+cat > risky.js <<'JS'
+export function cloudRisk(userInput) {
+  return eval(userInput /* CLOUD_SOURCE_MARKER */);
+}
+JS
+git add risky.js
+git commit -qm "cloud export fixture"
+
+: > "$REPO8/out.txt"
+DEVSHIELD_CLOUD_EXPORT_CAPTURE="$REPO8/cloud-payload.json" \
+GITHUB_WORKSPACE="$REPO8" \
+GITHUB_OUTPUT="$REPO8/out.txt" \
+GITHUB_REPOSITORY="example/private-repo" \
+GITHUB_SHA="$(git rev-parse HEAD)" \
+INPUT_FAIL_ON=none \
+INPUT_COMMENT=false \
+INPUT_CLOUD_API_URL=https://cloud.devshield.example/api/v1/scans \
+INPUT_CLOUD_TOKEN=cloud-test-token \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null
+
+CLOUD_STATUS="$(assert_output "$REPO8/out.txt" cloud-export-status)"
+if [[ "$CLOUD_STATUS" != "fixture" ]]; then
+  echo "Expected fixture Cloud export status, got $CLOUD_STATUS" >&2
+  exit 1
+fi
+node - "$REPO8/cloud-payload.json" <<'NODE'
+const fs = require('fs');
+const file = process.argv[2];
+const raw = fs.readFileSync(file, 'utf8');
+const payload = JSON.parse(raw);
+if (!Array.isArray(payload.findings) || payload.findings.length < 1) {
+  throw new Error('Expected structured Cloud findings');
+}
+if (raw.includes('CLOUD_SOURCE_MARKER')) {
+  throw new Error('Cloud payload leaked source text');
+}
+if (raw.includes('cloud-test-token')) {
+  throw new Error('Cloud payload leaked authentication token');
+}
+if (raw.includes('UNTRUSTED_REDACTED_DIFF')) {
+  throw new Error('Cloud payload leaked diff data');
+}
+if (payload.repository.fullName !== 'example/private-repo') {
+  throw new Error('Expected repository metadata in Cloud payload');
+}
+NODE
+
+# 9) Fail threshold still blocks.
 cd "$REPO1"
 : > "$REPO1/out.txt"
 set +e
@@ -370,4 +427,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v1.3 enhanced smoke tests passed."
+echo "DevShield v1.4 enhanced smoke tests passed."
