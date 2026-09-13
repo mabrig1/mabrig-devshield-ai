@@ -1,0 +1,100 @@
+name: Production Certification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  customer-path-certification:
+    name: Customer path certification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Run full regression suite
+        run: npm test
+
+      - name: Configure certification commits
+        run: |
+          git config user.email "devshield-certification@example.invalid"
+          git config user.name "DevShield Production Certification"
+
+      - name: Create safe customer change
+        run: |
+          mkdir -p .certification
+          printf 'export const productionSafe = true;\n' > .certification/safe.js
+          git add .certification/safe.js
+          git commit -m "certification: safe customer change"
+
+      - name: Verify public v1 accepts safe code
+        id: safe
+        uses: mabrig1/mabrig-devshield-ai@v1
+        with:
+          fail-on: high
+          comment: false
+          scan-scope: changed-lines
+          dependency-review: false
+          report-dir: .devshield-cert-safe
+
+      - name: Assert safe result
+        env:
+          SAFE_FINDINGS: ${{ steps.safe.outputs.findings-count }}
+          SAFE_REPORT: ${{ steps.safe.outputs.report-file }}
+        run: |
+          test "${SAFE_FINDINGS}" = "0"
+          test -n "${SAFE_REPORT}"
+          test -s "${SAFE_REPORT}"
+
+      - name: Create intentionally unsafe customer change
+        run: |
+          cat > .certification/risky.js <<'JS'
+          export function unsafeExecution(userInput) {
+            return eval(userInput);
+          }
+          export const leakedToken = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+          JS
+          git add .certification/risky.js
+          git commit -m "certification: intentionally unsafe customer change"
+
+      - name: Verify public v1 blocks unsafe code
+        id: risky
+        continue-on-error: true
+        uses: mabrig1/mabrig-devshield-ai@v1
+        with:
+          fail-on: high
+          comment: false
+          scan-scope: changed-lines
+          dependency-review: false
+          report-dir: .devshield-cert-risky
+
+      - name: Assert unsafe result is blocked
+        env:
+          RISKY_OUTCOME: ${{ steps.risky.outcome }}
+        run: |
+          if [ "${RISKY_OUTCOME}" != "failure" ]; then
+            echo "DevShield v1 did not block the intentionally unsafe customer change." >&2
+            exit 1
+          fi
+          test -s .devshield-cert-risky/devshield-report.json
+
+      - name: Certification summary
+        run: |
+          {
+            echo '## DevShield production certification'
+            echo '- Regression suite: PASS'
+            echo '- Public v1 safe customer path: PASS'
+            echo '- Public v1 unsafe merge gate: PASS (blocked as expected)'
+          } >> "$GITHUB_STEP_SUMMARY"
