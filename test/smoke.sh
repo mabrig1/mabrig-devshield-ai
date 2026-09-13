@@ -411,6 +411,24 @@ if (payload.repository.fullName !== 'example/private-repo') {
 }
 NODE
 
+# Cloud-required mode fails closed for invalid/non-HTTPS managed endpoints.
+: > "$REPO8/out-required.txt"
+set +e
+GITHUB_WORKSPACE="$REPO8" \
+GITHUB_OUTPUT="$REPO8/out-required.txt" \
+INPUT_FAIL_ON=none \
+INPUT_COMMENT=false \
+INPUT_CLOUD_API_URL=http://insecure.example.invalid/api/v1/scans \
+INPUT_CLOUD_TOKEN=cloud-test-token \
+INPUT_CLOUD_REQUIRED=true \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null 2>&1
+CLOUD_REQUIRED_STATUS=$?
+set -e
+if [[ $CLOUD_REQUIRED_STATUS -eq 0 ]]; then
+  echo "Expected cloud-required mode to reject a non-HTTPS endpoint" >&2
+  exit 1
+fi
+
 # 9) Fail threshold still blocks.
 cd "$REPO1"
 : > "$REPO1/out.txt"
