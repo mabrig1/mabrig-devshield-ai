@@ -78,6 +78,18 @@ inputs:
     description: 'Repository-relative output directory for JSON, SARIF, and baseline candidate reports.'
     required: false
     default: '.devshield'
+  cloud-api-url:
+    description: 'Optional HTTPS DevShield Cloud ingestion endpoint. Disabled when omitted.'
+    required: false
+    default: ''
+  cloud-token:
+    description: 'Optional DevShield Cloud installation token. Store as a GitHub Actions secret.'
+    required: false
+    default: ''
+  cloud-required:
+    description: 'Fail the scan if Cloud export is configured but cannot complete.'
+    required: false
+    default: 'false'
 outputs:
   findings-count:
     description: 'Total findings, including baseline-existing findings.'
@@ -115,6 +127,9 @@ outputs:
   baseline-output-file:
     description: 'Path to a generated baseline candidate containing current finding fingerprints.'
     value: ${{ steps.devshield.outputs.baseline-output-file }}
+  cloud-export-status:
+    description: 'Cloud export status: disabled, success, failed, misconfigured, or fixture.'
+    value: ${{ steps.devshield.outputs.cloud-export-status }}
 runs:
   using: 'composite'
   steps:
@@ -140,6 +155,9 @@ runs:
         INPUT_BASELINE_MODE: ${{ inputs.baseline-mode }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
+        INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
+        INPUT_CLOUD_TOKEN: ${{ inputs.cloud-token }}
+        INPUT_CLOUD_REQUIRED: ${{ inputs.cloud-required }}
       run: node "$GITHUB_ACTION_PATH/src/index.mjs"
 branding:
   icon: 'shield'
