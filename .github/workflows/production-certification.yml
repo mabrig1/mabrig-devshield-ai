@@ -64,8 +64,9 @@ jobs:
           export function unsafeExecution(userInput) {
             return eval(userInput);
           }
-          export const leakedToken = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
           JS
+          TOKEN="$(printf '%s%s%s' 'gh' 'p_' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')"
+          printf 'export const leakedToken = "%s";\n' "${TOKEN}" >> .certification/risky.js
           git add .certification/risky.js
           git commit -m "certification: intentionally unsafe customer change"
 
