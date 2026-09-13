@@ -4,12 +4,12 @@ Use this document for the first GitHub Marketplace publication and subsequent v1
 
 ## Current production release
 
-- Version: `1.3.0`
-- Tag to publish: `v1.3.0`
+- Version: `1.4.0`
+- Tag to publish: `v1.4.0`
 - Target: `main`
-- Release title: `MABRIG DevShield AI v1.3.0`
+- Release title: `MABRIG DevShield AI v1.4.0`
 - Stable compatibility ref: `v1`
-- Release notes source: `docs/RELEASE-NOTES-V1.3.0.md`
+- Release notes source: `docs/RELEASE-NOTES-V1.4.0.md`
 - Automated release workflow: `.github/workflows/release-v1.yml`
 
 ## Marketplace identity
@@ -18,7 +18,7 @@ Use this document for the first GitHub Marketplace publication and subsequent v1
 - Tagline: `Security-first pull request review before merge.`
 - Primary category: Security
 - Secondary positioning: Continuous integration / code quality / AI-assisted developer tooling
-- Publisher: MABRIG Digital Media
+- Publisher: MABRIG Technologies
 
 ## Short description
 
@@ -32,7 +32,7 @@ Before publishing a release:
 2. Confirm **Production Certification** is green. This workflow runs the full regression suite, proves the public `@v1` Action accepts a safe customer change, and proves it blocks an intentionally unsafe change.
 3. Confirm `package.json` and the matching release-notes file use the same version.
 4. Run **Release DevShield v1** from GitHub Actions with:
-   - `version`: `1.3.0`
+   - `version`: `1.4.0`
    - `confirm`: `RELEASE`
 5. The release workflow reruns tests and self-scan, publishes the GitHub Release, and advances the stable `v1` branch.
 6. For the first Marketplace publication, finish the Marketplace listing in the GitHub UI after the release exists.
@@ -49,8 +49,8 @@ Before publishing a release:
 ## First-publication checklist
 
 - [ ] Production Certification is green on `main`.
-- [ ] Run **Release DevShield v1** for `1.3.0`.
-- [ ] Confirm GitHub Release `v1.3.0` exists.
+- [ ] Run **Release DevShield v1** for `1.4.0`.
+- [ ] Confirm GitHub Release `v1.4.0` exists.
 - [ ] Confirm `v1` resolves to the intended production commit.
 - [ ] Accept the GitHub Marketplace Developer Agreement if prompted.
 - [ ] Choose the option to publish the Action to GitHub Marketplace.
