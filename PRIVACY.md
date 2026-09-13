@@ -22,9 +22,13 @@ Users with source-code residency or confidentiality restrictions should keep AI 
 
 If users contact MABRIG Technologies for support, we may process the information they voluntarily provide, such as contact details, repository identifiers and diagnostic logs. Users should remove secrets, credentials and unnecessary proprietary source code before sending support material.
 
-## Commercial managed service
+## Optional DevShield Cloud export
 
-A future DevShield Cloud/GitHub App may process installation metadata, subscription state, security findings, usage data and repository context needed to provide managed features. This notice must be updated with the final production data flows, subprocessors, retention periods and deletion process before that commercial service is launched.
+DevShield v1.4 includes an opt-in export bridge to a configured managed endpoint. When enabled, the Action can send repository/revision identifiers, run metadata, aggregate scan metrics and structured security findings needed for dashboards, history, usage metering and managed services.
+
+The v1.4 Cloud payload does not include source code, source-line text, code snippets, diff text, GitHub tokens, the DevShield Cloud token or local environment variables.
+
+The managed endpoint, retention policy, subprocessors, deletion process and customer data controls must be documented for the production DevShield Cloud service before commercial launch.
 
 ## Contact
 
