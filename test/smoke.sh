@@ -376,6 +376,7 @@ git commit -qm "cloud export fixture"
 DEVSHIELD_CLOUD_EXPORT_CAPTURE="$REPO8/cloud-payload.json" \
 GITHUB_WORKSPACE="$REPO8" \
 GITHUB_OUTPUT="$REPO8/out.txt" \
+GITHUB_EVENT_PATH= \
 GITHUB_REPOSITORY="example/private-repo" \
 GITHUB_SHA="$(git rev-parse HEAD)" \
 INPUT_FAIL_ON=none \
