@@ -7,8 +7,9 @@
     "devshield": "bin/devshield.mjs"
   },
   "scripts": {
-    "test": "bash test/smoke.sh",
-    "scan": "node bin/devshield.mjs"
+    "test": "node --test test/inventory.test.mjs && bash test/smoke.sh",
+    "scan": "node bin/devshield.mjs",
+    "inventory": "node bin/inventory.mjs"
   },
   "engines": {
     "node": ">=20"

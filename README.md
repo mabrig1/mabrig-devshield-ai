@@ -75,6 +75,17 @@ npm run scan -- --repository --fail-on high
 
 See [Local DevShield CLI](docs/LOCAL-CLI.md) and [examples/pre-commit.sh](examples/pre-commit.sh).
 
+## Offline dependency evidence
+
+Generate a local npm dependency inventory with package identities, declared licenses, integrity metadata, source transport findings, and traceable evidence:
+
+```bash
+npm run inventory
+npm run scan -- --inventory --fail-on medium
+```
+
+Supports npm v2/v3 lockfiles without network access or package installation. Reports distinguish missing metadata from verified evidence and explicitly state that vulnerability and package integrity verification were not performed. See [Offline dependency evidence](docs/DEPENDENCY-INVENTORY.md) for scanning another project, CI usage and limitations, and [AI assistance disclosure](docs/AI-ASSISTANCE.md) for this contribution's provenance.
+
 ## Optional AI review
 
 Store `OPENROUTER_API_KEY` in **Repository settings → Secrets and variables → Actions**:
