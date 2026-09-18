@@ -4,6 +4,15 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Offline npm v2/v3 dependency evidence through `npm run inventory` or `npm run scan -- --inventory`.
+- JSON and Markdown reports with package identities, license uncertainty, integrity metadata, source transport findings, lockfile hashes, and stable finding fingerprints.
+- Explicit coverage limits: no vulnerability lookup, signature verification, package download, or artifact integrity validation.
+- Regression tests for safe and unsafe metadata, credential omission, workspace links, gate behavior, malformed input, symlink refusal, and CLI routing.
+- Contribution-specific AI assistance disclosure.
+
+## [1.6.0] - 2026-09-18
+
+### Added
 - Approval-gated remediation proposal engine with exact source-line candidates for a deliberately small hardening allowlist.
 - Local `devshield-remediate` CLI with mission-ID approval, dry-run validation, source-hash stale checks, path/symlink protection, and no automatic commit.
 - New `remediation-mode` Action/config setting and remediation plan outputs.
