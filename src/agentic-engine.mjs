@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const confidenceRank = { low: 0, medium: 1, high: 2 };
@@ -260,4 +262,18 @@ export function agenticMarkdown(plan) {
   }
 
   return lines.join('\n');
+}
+
+
+export function writeAgenticPlan({ workspace, reportDir = '.devshield', plan }) {
+  const dir = path.join(workspace, reportDir);
+  fs.mkdirSync(dir, { recursive: true });
+  const jsonFile = path.join(dir, 'devshield-agentic-plan.json');
+  const markdownFile = path.join(dir, 'devshield-agentic-plan.md');
+  fs.writeFileSync(jsonFile, `${JSON.stringify(plan, null, 2)}\n`);
+  fs.writeFileSync(markdownFile, `${agenticMarkdown(plan)}\n`);
+  return {
+    jsonFile: path.relative(workspace, jsonFile).replace(/\\/g, '/'),
+    markdownFile: path.relative(workspace, markdownFile).replace(/\\/g, '/')
+  };
 }
