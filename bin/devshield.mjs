@@ -2,6 +2,11 @@
 import process from 'node:process';
 
 const args = process.argv.slice(2);
+if (args.includes('--inventory')) {
+  process.argv = [...process.argv.slice(0, 2), ...args.filter(arg => arg !== '--inventory')];
+  await import('./inventory.mjs');
+  process.exit(process.exitCode || 0);
+}
 const options = new Map();
 const flags = new Set();
 
@@ -32,6 +37,7 @@ Default behavior scans staged Git changes and blocks at high severity.
 
 Options:
   --staged                 Scan staged changes (default)
+  --inventory              Offline npm lockfile evidence (use --inventory --help)
   --changed-files          Scan all lines in changed files
   --repository             Scan tracked repository files
   --scope <scope>          staged|changed-lines|changed-files|repository
