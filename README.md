@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 1.4 adds the foundations expected from a serious security review product and an opt-in bridge to managed DevShield Cloud:
+Version 1.6 combines the established deterministic security engine with agentic analysis, managed Cloud integration, and approval-gated remediation:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -29,6 +29,7 @@ Version 1.4 adds the foundations expected from a serious security review product
 - **Local staged-change CLI** so the same policy can stop risky code before commit, not only in CI.
 - **Privacy-safe DevShield Cloud bridge** for paid dashboards, analytics, usage metering and organization features without exporting source snippets or diff text.
 - **Agentic security loop** that turns findings into prioritized remediation tasks, heuristic attack-path hypotheses, and explicit verification steps without silently mutating code.
+- **Approval-gated remediation proposals** that generate exact allowlisted patch candidates in CI while requiring a matching mission approval before any local source mutation.
 
 ## Quick start
 
@@ -75,6 +76,19 @@ npm run scan -- --repository --fail-on high
 ```
 
 See [Local DevShield CLI](docs/LOCAL-CLI.md) and [examples/pre-commit.sh](examples/pre-commit.sh).
+
+### Approval-gated remediation
+
+After a scan generates an agentic plan, inspect the proposed exact hardening edits:
+
+```bash
+npm run remediate
+npm run remediate -- --apply --approve <missionId> --dry-run
+npm run remediate -- --apply --approve <missionId>
+npm run scan -- --repository --fail-on high
+```
+
+The GitHub Action never applies these edits. Local application requires the scan mission ID and rejects stale source lines or symlink paths. See [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md).
 
 ## Optional AI review
 
@@ -335,7 +349,7 @@ DevShield Cloud export is a separate opt-in path. Its payload contains structure
 
 DevShield is designed to complement—not impersonate—full SAST, dependency-vulnerability intelligence, secret-validity checking, and human AppSec review. Its advantage is a fast, transparent merge-risk layer that works immediately, produces portable output, and can grow into deeper repository-context analysis without forcing teams to send code to an LLM.
 
-See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow and guardrails.
+See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
 
 See [`docs/COMPETITIVE-ROADMAP.md`](docs/COMPETITIVE-ROADMAP.md) for the next expansion targets.
 
