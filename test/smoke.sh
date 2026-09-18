@@ -5,6 +5,7 @@ ACTION_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 node --test "$ACTION_ROOT/test/agentic-engine.test.mjs"
 node --test "$ACTION_ROOT/test/remediation-engine.test.mjs"
+node --test "$ACTION_ROOT/test/inventory.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -449,4 +450,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v1.6 agentic remediation smoke tests passed."
+echo "DevShield v1.7 agentic remediation + dependency evidence smoke tests passed."
