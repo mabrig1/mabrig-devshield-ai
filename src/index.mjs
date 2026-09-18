@@ -4,8 +4,9 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { REDACTORS, rules } from './rules.mjs';
 import { agenticMarkdown, createAgenticPlan, writeAgenticPlan } from './agentic-engine.mjs';
+import { createRemediationPlan, remediationMarkdown, writeRemediationPlan } from './remediation-engine.mjs';
 
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -100,7 +101,8 @@ function sanitizeConfig(raw) {
     dependencyDenyLicenses: Array.isArray(cfg.dependencyDenyLicenses) ? cfg.dependencyDenyLicenses.filter(x => typeof x === 'string') : [],
     baselineFile: typeof cfg.baselineFile === 'string' ? cfg.baselineFile : undefined,
     baselineMode: typeof cfg.baselineMode === 'string' ? cfg.baselineMode : undefined,
-    agenticMode: typeof cfg.agenticMode === 'string' ? cfg.agenticMode : undefined
+    agenticMode: typeof cfg.agenticMode === 'string' ? cfg.agenticMode : undefined,
+    remediationMode: typeof cfg.remediationMode === 'string' ? cfg.remediationMode : undefined
   };
 }
 
@@ -138,6 +140,7 @@ const dependencyDenyLicenses = new Set([
 const baselineFile = safeBaselineFile(nonEmptyInput('INPUT_BASELINE_FILE', config.baselineFile || '.devshield-baseline.json'));
 const baselineMode = normalizeBaselineMode(nonEmptyInput('INPUT_BASELINE_MODE', config.baselineMode || 'new-only'));
 const agenticMode = normalizeAgenticMode(nonEmptyInput('INPUT_AGENTIC_MODE', config.agenticMode || 'plan'));
+const remediationMode = normalizeRemediationMode(nonEmptyInput('INPUT_REMEDIATION_MODE', config.remediationMode || 'propose'));
 const excludePaths = [
   ...config.excludePaths,
   ...input('INPUT_EXCLUDE_PATHS', '').split(',').map(s => s.trim()).filter(Boolean)
@@ -188,6 +191,11 @@ function normalizeBaselineMode(value) {
 function normalizeAgenticMode(value) {
   const v = String(value || '').toLowerCase();
   return ['off', 'plan', 'ai'].includes(v) ? v : 'plan';
+}
+
+function normalizeRemediationMode(value) {
+  const v = String(value || '').toLowerCase();
+  return ['off', 'propose'].includes(v) ? v : 'propose';
 }
 
 function safeBaselineFile(value) {
@@ -672,7 +680,7 @@ function categoryCounts(findings) {
   return counts;
 }
 
-function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan) {
+function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan, remediationPlan) {
   const counts = severityCounts(gateFindings);
   const categories = Object.entries(categoryCounts(gateFindings)).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const newCount = findings.filter(f => f.status === 'new').length;
@@ -687,6 +695,7 @@ function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baselin
     : `${baseline.status} · mode \`${baselineMode}\``;
   const dependencyText = `${dependencyReview.status} · reviewed ${dependencyReview.dependenciesReviewed} changed dependencies · findings ${dependencyCount}`;
   const agenticSection = agenticMarkdown(agenticPlan);
+  const remediationSection = remediationMarkdown(remediationPlan);
 
   return `${COMMENT_MARKER}
 ## 🛡️ MABRIG DevShield AI
@@ -704,6 +713,8 @@ Critical **${counts.critical}** · High **${counts.high}** · Medium **${counts.
 **Baseline:** ${baselineText}
 
 ${agenticSection}
+
+${remediationSection}
 
 ${gateFindings.length ? `| Severity | Rule | Location | Finding |
 |---|---|---|---|
@@ -816,7 +827,8 @@ function writeReports(files, findings, gateFindings, risk, ignored, baseline, de
       dependencyDenyLicenses: [...dependencyDenyLicenses],
       baselineFile,
       baselineMode,
-      agenticMode
+      agenticMode,
+      remediationMode
     },
     baseline: {
       status: baseline.status,
@@ -1134,11 +1146,13 @@ const dependencyFindings = findings.filter(f => f.category === 'dependencies');
 const risk = riskFrom(gateFindings);
 const agenticPlan = createAgenticPlan({ findings: gateFindings, risk, files, mode: agenticMode });
 const agenticReports = writeAgenticPlan({ workspace, reportDir, plan: agenticPlan });
+const remediationPlan = createRemediationPlan({ workspace, agenticPlan, maxFileBytes, mode: remediationMode });
+const remediationReports = writeRemediationPlan({ workspace, reportDir, plan: remediationPlan });
 emitAnnotations(gateFindings);
 const reports = writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview);
 const cloudExportStatus = await exportToCloud(files, findings, gateFindings, risk, ignored, baseline, dependencyReview);
 const ai = await aiReview(filteredDiff(files), gateFindings, agenticMode === 'ai' ? agenticPlan : null);
-const markdown = buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan);
+const markdown = buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan, remediationPlan);
 
 if (summaryFile) fs.appendFileSync(summaryFile, `${markdown}\n`);
 await postPrComment(markdown);
@@ -1161,6 +1175,10 @@ setOutput('agentic-tasks', agenticPlan.summary.remediationTasks);
 setOutput('agentic-attack-paths', agenticPlan.summary.attackPaths);
 setOutput('agentic-plan-file', agenticReports.jsonFile);
 setOutput('agentic-plan-markdown', agenticReports.markdownFile);
+setOutput('remediation-candidates', remediationPlan.summary.candidates);
+setOutput('remediation-manual-only', remediationPlan.summary.manualOnly);
+setOutput('remediation-plan-file', remediationReports.jsonFile);
+setOutput('remediation-plan-markdown', remediationReports.markdownFile);
 
 console.log(`MABRIG DevShield AI v${VERSION}: ${findings.length} total findings (${newFindings.length} new, ${existingFindings.length} baseline-existing), ${dependencyFindings.length} dependency findings, ${ignored} suppressed, risk ${risk.level} (${risk.score}/100), ${files.length} files scanned.`);
 
