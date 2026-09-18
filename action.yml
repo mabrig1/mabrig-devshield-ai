@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security-first pull request review with diff-aware checks, dependency intelligence, baselines, SARIF, policy-as-code, and optional AI analysis.'
+description: 'Security-first pull request review with diff-aware checks, dependency intelligence, baselines, agentic remediation planning, SARIF, policy-as-code, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -70,6 +70,10 @@ inputs:
     description: 'Baseline behavior: new-only, report, or off.'
     required: false
     default: ''
+  agentic-mode:
+    description: 'Agentic security loop: off, plan, or ai. plan is deterministic and advisory.'
+    required: false
+    default: ''
   sarif:
     description: 'Write a SARIF 2.1.0 report for GitHub Code Scanning or other SARIF consumers.'
     required: false
@@ -130,6 +134,21 @@ outputs:
   cloud-export-status:
     description: 'Cloud export status: disabled, success, failed, misconfigured, or fixture.'
     value: ${{ steps.devshield.outputs.cloud-export-status }}
+  agentic-state:
+    description: 'Agentic mission state: disabled, remediation-ready, or verified-clean.'
+    value: ${{ steps.devshield.outputs.agentic-state }}
+  agentic-tasks:
+    description: 'Number of remediation tasks proposed by the agentic engine.'
+    value: ${{ steps.devshield.outputs.agentic-tasks }}
+  agentic-attack-paths:
+    description: 'Number of heuristic candidate attack paths.'
+    value: ${{ steps.devshield.outputs.agentic-attack-paths }}
+  agentic-plan-file:
+    description: 'Path to the machine-readable agentic plan.'
+    value: ${{ steps.devshield.outputs.agentic-plan-file }}
+  agentic-plan-markdown:
+    description: 'Path to the human-readable agentic plan.'
+    value: ${{ steps.devshield.outputs.agentic-plan-markdown }}
 runs:
   using: 'composite'
   steps:
@@ -153,6 +172,7 @@ runs:
         INPUT_DEPENDENCY_DENY_LICENSES: ${{ inputs.dependency-deny-licenses }}
         INPUT_BASELINE_FILE: ${{ inputs.baseline-file }}
         INPUT_BASELINE_MODE: ${{ inputs.baseline-mode }}
+        INPUT_AGENTIC_MODE: ${{ inputs.agentic-mode }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
