@@ -2,6 +2,13 @@
 
 All notable changes to **MABRIG DevShield AI** are documented here.
 
+## Unreleased
+
+- Agentic security engine with observe → prioritize → attack-path → remediate → verify stages.
+- Deterministic priority queue, file clusters, heuristic candidate attack paths, remediation tasks, and verification evidence.
+- New `agentic-mode` Action/config setting plus JSON/Markdown agentic plan reports and Action outputs.
+- Guardrails prohibit automatic repository mutation, merge-gate bypass, credential rotation, or execution of untrusted source instructions.
+
 ## [1.4.0] - 2026-09-13
 
 ### Added

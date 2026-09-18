@@ -3,6 +3,8 @@ set -euo pipefail
 
 ACTION_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+node --test "$ACTION_ROOT/test/agentic-engine.test.mjs"
+
 run_scan() {
   local repo="$1"
   local out="$repo/out.txt"
@@ -446,4 +448,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v1.4 enhanced smoke tests passed."
+echo "DevShield v1.5 agentic smoke tests passed."
