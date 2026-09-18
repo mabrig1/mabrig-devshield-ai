@@ -15,5 +15,6 @@
   "dependencyDenyLicenses": [],
   "baselineFile": ".devshield-baseline.json",
   "baselineMode": "new-only",
-  "agenticMode": "plan"
+  "agenticMode": "plan",
+  "remediationMode": "propose"
 }

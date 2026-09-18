@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security-first pull request review with diff-aware checks, dependency intelligence, baselines, agentic remediation planning, SARIF, policy-as-code, and optional AI analysis.'
+description: 'Security-first pull request review with diff-aware checks, dependency intelligence, agentic planning, approval-gated remediation proposals, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -72,6 +72,10 @@ inputs:
     default: ''
   agentic-mode:
     description: 'Agentic security loop: off, plan, or ai. plan is deterministic and advisory.'
+    required: false
+    default: ''
+  remediation-mode:
+    description: 'Remediation proposal mode: off or propose. The Action never applies source mutations.'
     required: false
     default: ''
   sarif:
@@ -149,6 +153,18 @@ outputs:
   agentic-plan-markdown:
     description: 'Path to the human-readable agentic plan.'
     value: ${{ steps.devshield.outputs.agentic-plan-markdown }}
+  remediation-candidates:
+    description: 'Number of exact allowlisted remediation candidates.'
+    value: ${{ steps.devshield.outputs.remediation-candidates }}
+  remediation-manual-only:
+    description: 'Number of tasks that remain human-only.'
+    value: ${{ steps.devshield.outputs.remediation-manual-only }}
+  remediation-plan-file:
+    description: 'Path to the machine-readable remediation proposal.'
+    value: ${{ steps.devshield.outputs.remediation-plan-file }}
+  remediation-plan-markdown:
+    description: 'Path to the human-readable remediation proposal.'
+    value: ${{ steps.devshield.outputs.remediation-plan-markdown }}
 runs:
   using: 'composite'
   steps:
@@ -173,6 +189,7 @@ runs:
         INPUT_BASELINE_FILE: ${{ inputs.baseline-file }}
         INPUT_BASELINE_MODE: ${{ inputs.baseline-mode }}
         INPUT_AGENTIC_MODE: ${{ inputs.agentic-mode }}
+        INPUT_REMEDIATION_MODE: ${{ inputs.remediation-mode }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}

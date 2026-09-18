@@ -4,6 +4,14 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Approval-gated remediation proposal engine with exact source-line candidates for a deliberately small hardening allowlist.
+- Local `devshield-remediate` CLI with mission-ID approval, dry-run validation, source-hash stale checks, path/symlink protection, and no automatic commit.
+- New `remediation-mode` Action/config setting and remediation plan outputs.
+- GitHub Action remains proposal-only and never mutates repository source.
+
+## [1.5.0] - 2026-09-18
+
+### Added
 - Agentic security engine with observe → prioritize → attack-path → remediate → verify stages.
 - Deterministic priority queue, file clusters, heuristic candidate attack paths, remediation tasks, and verification evidence.
 - New `agentic-mode` Action/config setting plus JSON/Markdown agentic plan reports and Action outputs.
