@@ -28,6 +28,7 @@ Version 1.4 adds the foundations expected from a serious security review product
 - **No Action runtime dependencies** beyond Node.js already present on GitHub-hosted runners.
 - **Local staged-change CLI** so the same policy can stop risky code before commit, not only in CI.
 - **Privacy-safe DevShield Cloud bridge** for paid dashboards, analytics, usage metering and organization features without exporting source snippets or diff text.
+- **Agentic security loop** that turns findings into prioritized remediation tasks, heuristic attack-path hypotheses, and explicit verification steps without silently mutating code.
 
 ## Quick start
 
@@ -333,6 +334,8 @@ DevShield Cloud export is a separate opt-in path. Its payload contains structure
 ## Design philosophy
 
 DevShield is designed to complement—not impersonate—full SAST, dependency-vulnerability intelligence, secret-validity checking, and human AppSec review. Its advantage is a fast, transparent merge-risk layer that works immediately, produces portable output, and can grow into deeper repository-context analysis without forcing teams to send code to an LLM.
+
+See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow and guardrails.
 
 See [`docs/COMPETITIVE-ROADMAP.md`](docs/COMPETITIVE-ROADMAP.md) for the next expansion targets.
 
