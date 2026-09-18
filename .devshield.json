@@ -14,5 +14,6 @@
   "dependencySeverity": "low",
   "dependencyDenyLicenses": [],
   "baselineFile": ".devshield-baseline.json",
-  "baselineMode": "new-only"
+  "baselineMode": "new-only",
+  "agenticMode": "plan"
 }
