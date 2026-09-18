@@ -126,13 +126,36 @@ function lineAt(content, lineNumber) {
 export function createRemediationPlan({
   workspace,
   agenticPlan,
-  maxFileBytes = 1_500_000
+  maxFileBytes = 1_500_000,
+  mode = 'propose'
 } = {}) {
   if (!workspace) throw new Error('workspace is required');
   if (!agenticPlan || typeof agenticPlan !== 'object') throw new Error('agenticPlan is required');
+  const normalizedMode = mode === 'off' ? 'off' : 'propose';
 
   const candidates = [];
   const manual = [];
+
+  if (normalizedMode === 'off') {
+    return {
+      schemaVersion: 1,
+      missionId: agenticPlan.missionId,
+      generatedAt: new Date().toISOString(),
+      mode: 'off',
+      approval: { required: true, value: agenticPlan.missionId, description: 'Remediation proposals are disabled.' },
+      guardrails: {
+        githubActionAppliesChanges: false,
+        allowlistedExactEditsOnly: true,
+        staleSourceRejected: true,
+        symlinkPathsRejected: true,
+        secretRotationAutomated: false,
+        semanticCodeRewritesAutomated: false
+      },
+      summary: { tasks: 0, candidates: 0, manualOnly: 0 },
+      candidates: [],
+      manualOnly: []
+    };
+  }
 
   for (const task of Array.isArray(agenticPlan.tasks) ? agenticPlan.tasks : []) {
     const finding = task?.finding || {};
@@ -177,7 +200,7 @@ export function createRemediationPlan({
     schemaVersion: 1,
     missionId: agenticPlan.missionId,
     generatedAt: new Date().toISOString(),
-    mode: 'approval-gated',
+    mode: 'propose',
     approval: {
       required: true,
       value: agenticPlan.missionId,
@@ -202,6 +225,7 @@ export function createRemediationPlan({
 }
 
 export function remediationMarkdown(plan) {
+  if (!plan || plan.mode === 'off') return '### Approval-gated remediation\n\nRemediation proposals: disabled.';
   const lines = [
     '### Approval-gated remediation',
     '',
