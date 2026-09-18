@@ -30,6 +30,7 @@ Version 1.6 combines the established deterministic security engine with agentic 
 - **Privacy-safe DevShield Cloud bridge** for paid dashboards, analytics, usage metering and organization features without exporting source snippets or diff text.
 - **Agentic security loop** that turns findings into prioritized remediation tasks, heuristic attack-path hypotheses, and explicit verification steps without silently mutating code.
 - **Approval-gated remediation proposals** that generate exact allowlisted patch candidates in CI while requiring a matching mission approval before any local source mutation.
+- **Offline npm dependency evidence** for lockfile package identity, declared license, integrity metadata, source transport, stable fingerprints, and policy gating without package installation.
 
 ## Quick start
 
@@ -76,6 +77,19 @@ npm run scan -- --repository --fail-on high
 ```
 
 See [Local DevShield CLI](docs/LOCAL-CLI.md) and [examples/pre-commit.sh](examples/pre-commit.sh).
+
+### Offline dependency evidence
+
+Generate a local npm dependency inventory with package identities, declared licenses, integrity metadata, source transport findings, and traceable evidence:
+
+```bash
+npm run inventory
+npm run scan -- --inventory --fail-on medium
+```
+
+The inventory works offline against npm v2/v3 lockfiles, does not install packages or execute lifecycle scripts, and distinguishes recorded metadata from verified security evidence. It does **not** perform vulnerability lookup, registry-signature verification, package download, or artifact-byte integrity validation.
+
+See [Offline dependency evidence](docs/DEPENDENCY-INVENTORY.md) and [AI assistance disclosure](docs/AI-ASSISTANCE.md).
 
 ### Approval-gated remediation
 
