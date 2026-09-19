@@ -52,6 +52,37 @@ test('loads active exceptions and automatically expires past entries', () => {
   assert.equal(result.active[0].id, 'risk-001');
 });
 
+
+test('rejects future review timestamps and invalidates every duplicate ID', () => {
+  const root = workspace();
+  write(root, {
+    schemaVersion: 1,
+    exceptions: [
+      {
+        id: 'dup-001',
+        owner: '@alice',
+        rationale: 'First duplicate acceptance should not remain active.',
+        reviewedAt: '2026-09-20T00:00:00Z',
+        expiresAt: '2026-10-01T00:00:00Z',
+        scope: { findingFingerprints: ['aaaaaaaaaaaaaaaa'], graphPathIds: [] }
+      },
+      {
+        id: 'dup-001',
+        owner: '@bob',
+        rationale: 'Second duplicate acceptance should also be invalid.',
+        reviewedAt: '2026-09-19T00:00:00Z',
+        expiresAt: '2026-10-01T00:00:00Z',
+        scope: { findingFingerprints: ['bbbbbbbbbbbbbbbb'], graphPathIds: [] }
+      }
+    ]
+  });
+  const result = loadRiskExceptions({ workspace: root, now: '2026-09-19T00:00:00Z', maxDays: 90 });
+  assert.equal(result.active.length, 0);
+  assert.equal(result.invalid.length, 2);
+  assert.ok(result.invalid.every(item => item.errors.includes('duplicate-id')));
+  assert.ok(result.invalid[0].errors.includes('reviewedAt-future'));
+});
+
 test('rejects malformed, unscoped and overlong risk acceptance', () => {
   const root = workspace();
   write(root, {
