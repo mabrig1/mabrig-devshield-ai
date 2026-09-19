@@ -4,6 +4,19 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Policy-aware regression gate with explicit `off`, non-blocking `report`, and opt-in `enforce` modes.
+- Configurable new-risk severity threshold from critical through low, plus `none`.
+- Independent ignore/warn/block policy for expanded graph exposure.
+- Ignore/warn policy for unchanged inherited debt.
+- Blast-radius threshold with ignore, warn, block, or require-owner-approval actions.
+- Narrow GitHub review verification for individual CODEOWNERS owners; team ownership is never inferred automatically.
+- Regression policy JSON/Markdown artifacts and Action outputs.
+- Privacy-safe Cloud policy telemetry excludes reviewer identities and ownership mappings.
+- Existing deterministic `fail-on` gate remains independent and authoritative.
+
+## [2.1.0] - 2026-09-19
+
+### Added
 - Tamper-evident Security Graph History with SHA-256 hash chaining.
 - Optional HMAC-SHA256 entry signing through a secret input/environment key; signing keys are never written to reports or Cloud telemetry.
 - Longitudinal classification for new risk, expanded exposure, reduced exposure, resolved risk, and unchanged inherited debt.
