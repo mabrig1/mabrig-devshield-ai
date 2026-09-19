@@ -96,6 +96,7 @@ export function createRiskExposureSnapshot(graph, { maxDepth = 4 } = {}) {
     severity: node.attributes && node.attributes.severity || null,
     rule: node.attributes && node.attributes.rule || null,
     file: node.attributes && node.attributes.file || null,
+    fingerprint: node.attributes && node.attributes.fingerprint || null,
     exposure: exposureForSeed(node.id, graph, maxDepth)
   }));
   return {
@@ -145,6 +146,7 @@ export function classifySecurityRegression(currentSnapshot, previousSnapshot) {
       severity: item.severity,
       rule: item.rule,
       file: item.file,
+      fingerprint: item.fingerprint || null,
       beforeReachableNodes: before,
       afterReachableNodes: after,
       delta: after - before
@@ -190,7 +192,7 @@ export function classifySecurityRegression(currentSnapshot, previousSnapshot) {
 }
 
 function entryPayload(entry) {
-  return {
+  const payload = {
     schemaVersion: entry.schemaVersion,
     sequence: entry.sequence,
     recordedAt: entry.recordedAt,
@@ -204,6 +206,9 @@ function entryPayload(entry) {
     regression: entry.regression,
     previousEntryHash: entry.previousEntryHash
   };
+  if (Object.prototype.hasOwnProperty.call(entry, 'exceptionSnapshot')) payload.exceptionSnapshot = entry.exceptionSnapshot;
+  if (Object.prototype.hasOwnProperty.call(entry, 'exceptionLifecycle')) payload.exceptionLifecycle = entry.exceptionLifecycle;
+  return payload;
 }
 
 function secureEqualHex(a, b) {
@@ -278,7 +283,9 @@ export function appendSecurityHistory({
   revision = {},
   signingKey = '',
   recordedAt = new Date().toISOString(),
-  maxEntries = 60
+  maxEntries = 60,
+  exceptionSnapshot = null,
+  exceptionLifecycle = null
 } = {}) {
   if (!graphValid(graph)) throw new Error('security graph is required');
   const sourceEntries = loadedHistory && loadedHistory.status === 'loaded' && loadedHistory.history
@@ -300,6 +307,8 @@ export function appendSecurityHistory({
     blastRadiusSummary: controlPlane && controlPlane.blastRadius && controlPlane.blastRadius.summary || null,
     riskSnapshot,
     regression: { state: regression.state, summary: regression.summary },
+    ...(exceptionSnapshot ? { exceptionSnapshot } : {}),
+    ...(exceptionLifecycle ? { exceptionLifecycle } : {}),
     previousEntryHash: previousEntry && previousEntry.entryHash || null
   };
   const entryHash = sha256(canonical(payload));
@@ -358,6 +367,10 @@ export function securityHistoryMarkdown(result, loadedHistory) {
     lines.push('', '**Regression classification:** new risk ' + regression.summary.newRisk + ' · expanded exposure ' + regression.summary.expandedExposure + ' · reduced exposure ' + regression.summary.reducedExposure + ' · resolved risk ' + regression.summary.resolvedRisk + ' · unchanged inherited debt ' + regression.summary.unchangedInheritedDebt);
   } else {
     lines.push('', '**Regression classification:** unavailable until a reviewed history snapshot is committed.');
+  }
+  if (result.entry.exceptionLifecycle && result.entry.exceptionLifecycle.summary) {
+    const lifecycle = result.entry.exceptionLifecycle.summary;
+    lines.push('', '**Risk-exception lifecycle:** introduced ' + lifecycle.introduced + ' · renewed ' + lifecycle.renewed + ' · lapsed ' + lifecycle.lapsed + ' · scope changed ' + lifecycle.changedScope);
   }
   return lines.join('\n');
 }

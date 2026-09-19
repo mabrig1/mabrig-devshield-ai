@@ -61,6 +61,10 @@ Options:
   --regression-inherited-debt <action> ignore|warn
   --regression-blast-radius-threshold <n> 0 disables threshold policy
   --regression-blast-radius-action <action> ignore|warn|block|require-owner-approval
+  --risk-exceptions <mode> off|auto|on
+  --risk-exceptions-file <path> reviewed time-bound risk acceptance JSON
+  --risk-exception-max-days <n> maximum acceptance duration, 1..365
+  --risk-exception-allow-critical <bool> regression-policy only; deterministic findings remain visible
   --report-dir <path>      Report directory (default: .devshield)
   Signing key: set DEVSHIELD_SECURITY_HISTORY_SIGNING_KEY in the environment; do not pass secrets on the command line.
   --no-sarif               Disable SARIF output
@@ -94,6 +98,10 @@ const regressionExpandedExposure = options.get('regression-expanded-exposure') |
 const regressionInheritedDebt = options.get('regression-inherited-debt') || '';
 const regressionBlastRadiusThreshold = options.get('regression-blast-radius-threshold') || '';
 const regressionBlastRadiusAction = options.get('regression-blast-radius-action') || '';
+const riskExceptions = options.get('risk-exceptions') || '';
+const riskExceptionsFile = options.get('risk-exceptions-file') || '';
+const riskExceptionMaxDays = options.get('risk-exception-max-days') || '';
+const riskExceptionAllowCritical = options.get('risk-exception-allow-critical') || '';
 const reportDir = options.get('report-dir') || '.devshield';
 
 process.env.GITHUB_WORKSPACE = process.cwd();
@@ -122,5 +130,9 @@ if (regressionExpandedExposure) process.env.INPUT_REGRESSION_EXPANDED_EXPOSURE =
 if (regressionInheritedDebt) process.env.INPUT_REGRESSION_INHERITED_DEBT = regressionInheritedDebt;
 if (regressionBlastRadiusThreshold) process.env.INPUT_REGRESSION_BLAST_RADIUS_THRESHOLD = regressionBlastRadiusThreshold;
 if (regressionBlastRadiusAction) process.env.INPUT_REGRESSION_BLAST_RADIUS_ACTION = regressionBlastRadiusAction;
+if (riskExceptions) process.env.INPUT_RISK_EXCEPTIONS = riskExceptions;
+if (riskExceptionsFile) process.env.INPUT_RISK_EXCEPTIONS_FILE = riskExceptionsFile;
+if (riskExceptionMaxDays) process.env.INPUT_RISK_EXCEPTION_MAX_DAYS = riskExceptionMaxDays;
+if (riskExceptionAllowCritical) process.env.INPUT_RISK_EXCEPTION_ALLOW_CRITICAL = riskExceptionAllowCritical;
 
 await import('../src/index.mjs');

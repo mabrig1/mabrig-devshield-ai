@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.2 adds policy-aware regression gates on top of the v2.1 history engine, so teams can report or enforce rules for newly introduced risk, expanded exposure, inherited debt, and excessive blast radius without weakening DevShield's original deterministic security gate:
+Version 2.3 adds time-bound, reviewable risk acceptance on top of the v2.2 regression gate, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -36,6 +36,7 @@ Version 2.2 adds policy-aware regression gates on top of the v2.1 history engine
 - **Security Control Plane** with graph snapshot diffing, bounded changed-file blast radius, evidence-weighted review-priority propagation, best-effort CODEOWNERS ownership hints, and post-remediation observation checks.
 - **Security Graph History & Regression Detection** with SHA-256 hash chaining, optional HMAC-SHA256 signing, bounded risk-exposure snapshots, and explicit `regression`, `improvement`, `unchanged`, or first-snapshot `unclassified` states.
 - **Policy-Aware Regression Gates** with report-only defaults, opt-in enforcement, severity thresholds for new risk, warn/block controls for expanded exposure, inherited-debt visibility, and optional blast-radius owner approval using verifiable individual CODEOWNERS reviews.
+- **Time-Bound Risk Acceptance** with owner/rationale/review/expiry metadata, fingerprint or graph-path scoping, automatic expiry, critical-regression refusal by default, and lifecycle history for introduced, renewed, lapsed, and scope-changed exceptions.
 
 ## Quick start
 
@@ -236,6 +237,46 @@ Artifacts:
 
 See [Policy-Aware Regression Gates](docs/REGRESSION-POLICY.md).
 
+### Time-Bound Risk Acceptance
+
+DevShield v2.3 lets teams accept narrowly scoped **regression-policy** risk without suppressing the underlying evidence.
+
+Example `.devshield-exceptions.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    {
+      "id": "risk-2026-001",
+      "owner": "@security-owner",
+      "rationale": "Temporary acceptance while the dependency upgrade is tested in staging.",
+      "reviewedAt": "2026-09-19T00:00:00Z",
+      "expiresAt": "2026-10-10T00:00:00Z",
+      "scope": {
+        "findingFingerprints": [
+          "0123456789abcdef0123456789abcdef"
+        ],
+        "graphPathIds": []
+      }
+    }
+  ]
+}
+```
+
+A valid exception must have an ID, owner, meaningful rationale, review timestamp, expiry timestamp, and at least one finding fingerprint or graph path ID. The default maximum acceptance duration is **90 days**.
+
+Expired exceptions are ignored automatically. Invalid exceptions are ignored and reported. By default, matching **critical** regression items are not accepted. Even when critical regression acceptance is explicitly enabled, the original deterministic finding, SARIF entry, annotation, graph node, and `fail-on` behavior remain unchanged.
+
+History records only compact lifecycle evidence—exception ID, timestamps, status, and a scope hash—not the owner or rationale text. This allows v2.3 to distinguish exception **introduced**, **renewed**, **lapsed**, and **scope changed** events without copying sensitive internal rationale into the history chain.
+
+Artifacts:
+
+- `.devshield/devshield-risk-exceptions.json`
+- `.devshield/devshield-risk-exceptions.md`
+
+See [Time-Bound Risk Acceptance](docs/RISK-EXCEPTIONS.md).
+
 ### Approval-gated remediation
 
 After a scan generates an agentic plan, inspect the proposed exact hardening edits:
@@ -324,7 +365,11 @@ Create `.devshield.json` in the repository root:
   "regressionExpandedExposure": "warn",
   "regressionInheritedDebt": "ignore",
   "regressionBlastRadiusThreshold": 0,
-  "regressionBlastRadiusAction": "warn"
+  "regressionBlastRadiusAction": "warn",
+  "riskExceptionsMode": "auto",
+  "riskExceptionsFile": ".devshield-exceptions.json",
+  "riskExceptionMaxDays": 90,
+  "riskExceptionAllowCritical": false
 }
 ```
 
@@ -486,6 +531,10 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 | `regression-inherited-debt` | `ignore` | `ignore` or `warn` |
 | `regression-blast-radius-threshold` | `0` | Impacted-node threshold; `0` disables threshold policy |
 | `regression-blast-radius-action` | `warn` | `ignore`, `warn`, `block`, or `require-owner-approval` |
+| `risk-exceptions` | config or `auto` | `off`, `auto`, or `on`; applies time-bound acceptance only to regression policy |
+| `risk-exceptions-file` | `.devshield-exceptions.json` | Reviewed repository-relative risk-acceptance JSON file |
+| `risk-exception-max-days` | `90` | Maximum reviewed duration, bounded to 1–365 days |
+| `risk-exception-allow-critical` | `false` | Allow critical regression-policy acceptance only; deterministic findings remain unsuppressed |
 | `sarif` | `true` | Generate SARIF |
 | `report-dir` | `.devshield` | Directory for machine-readable reports |
 | `cloud-api-url` | empty | Optional HTTPS DevShield Cloud ingestion endpoint |
@@ -553,6 +602,17 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 - `regression-gate-approval-required`
 - `regression-gate-file`
 - `regression-gate-markdown`
+- `risk-exceptions-status`
+- `risk-exceptions-active`
+- `risk-exceptions-expired`
+- `risk-exceptions-invalid`
+- `risk-exceptions-applied`
+- `risk-exceptions-critical-skipped`
+- `risk-exceptions-introduced`
+- `risk-exceptions-renewed`
+- `risk-exceptions-lapsed`
+- `risk-exceptions-file`
+- `risk-exceptions-markdown`
 
 ## Risk scoring
 
@@ -585,7 +645,7 @@ DevShield Cloud export is a separate opt-in path. Its payload contains structure
 
 DevShield is designed to complement—not impersonate—full SAST, dependency-vulnerability intelligence, secret-validity checking, and human AppSec review. Its advantage is a fast, transparent merge-risk layer that works immediately, produces portable output, and can grow into deeper repository-context analysis without forcing teams to send code to an LLM.
 
-See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow, [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md) for cross-layer package correlation, [Repository Security Graph](docs/SECURITY-GRAPH.md) for traceable graph relationships and multi-hop paths, [Security Control Plane](docs/CONTROL-PLANE.md) for graph diffing, blast radius and review coordination, [Security Graph History](docs/SECURITY-HISTORY.md) for hash-chained regression history, [Policy-Aware Regression Gates](docs/REGRESSION-POLICY.md) for longitudinal policy enforcement, and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
+See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow, [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md) for cross-layer package correlation, [Repository Security Graph](docs/SECURITY-GRAPH.md) for traceable graph relationships and multi-hop paths, [Security Control Plane](docs/CONTROL-PLANE.md) for graph diffing, blast radius and review coordination, [Security Graph History](docs/SECURITY-HISTORY.md) for hash-chained regression history, [Policy-Aware Regression Gates](docs/REGRESSION-POLICY.md) for longitudinal policy enforcement, [Time-Bound Risk Acceptance](docs/RISK-EXCEPTIONS.md) for scoped exception governance, and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
 
 See [`docs/COMPETITIVE-ROADMAP.md`](docs/COMPETITIVE-ROADMAP.md) for the next expansion targets.
 
@@ -608,6 +668,7 @@ The smoke suite validates:
 - security control plane graph diffing, blast radius, ownership hints, review priority, and remediation observation checks
 - security history chain integrity, optional HMAC verification, and exposure-regression classification
 - policy-aware regression report/enforce behavior, severity thresholds, blast-radius actions, and owner-approval verification
+- time-bound exception validation, automatic expiry, fingerprint/path scoping, critical-risk guardrails, and lifecycle history
 - baseline new-versus-existing classification
 - staged-index CLI blocking and safe staged changes
 - merge-failure thresholds

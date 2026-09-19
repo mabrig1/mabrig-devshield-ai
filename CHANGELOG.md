@@ -4,6 +4,18 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Time-bound risk acceptance file with owner, rationale, review timestamp, expiry timestamp, and fingerprint/path scopes.
+- Automatic expiry and configurable maximum acceptance duration from 1 to 365 days.
+- Risk exceptions affect only the regression-policy view; deterministic findings, SARIF, annotations, graph/history evidence, and `fail-on` remain unchanged.
+- Critical regression-policy exceptions are disabled by default and require an explicit opt-in.
+- Compact exception lifecycle evidence in Security Graph History: introduced, renewed, lapsed, and scope changed.
+- Exception history snapshots omit owner/rationale and store only scope hashes rather than raw fingerprints/path IDs.
+- JSON/Markdown risk-exception artifacts plus Action/CLI inputs and outputs.
+- Privacy-safe Cloud/AI integration exports only aggregate exception counts.
+
+## [2.2.0] - 2026-09-19
+
+### Added
 - Policy-aware regression gate with explicit `off`, non-blocking `report`, and opt-in `enforce` modes.
 - Configurable new-risk severity threshold from critical through low, plus `none`.
 - Independent ignore/warn/block policy for expanded graph exposure.

@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security control plane for pull requests with policy-aware regression gates, tamper-evident graph history, blast-radius analysis, owner-approval evidence, SARIF, and optional AI analysis.'
+description: 'Security control plane for pull requests with time-bound risk acceptance, policy-aware regression gates, tamper-evident graph history, blast-radius analysis, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -132,6 +132,22 @@ inputs:
     default: ''
   regression-blast-radius-action:
     description: 'Blast-radius policy action: ignore, warn, block, or require-owner-approval.'
+    required: false
+    default: ''
+  risk-exceptions:
+    description: 'Time-bound regression risk exceptions: off, auto, or on. Exceptions never suppress deterministic findings/SARIF.'
+    required: false
+    default: ''
+  risk-exceptions-file:
+    description: 'Repository-relative JSON file containing reviewed time-bound risk exceptions.'
+    required: false
+    default: ''
+  risk-exception-max-days:
+    description: 'Maximum reviewedAt-to-expiresAt duration for an exception, from 1 to 365 days.'
+    required: false
+    default: ''
+  risk-exception-allow-critical:
+    description: 'Allow an active exception to affect critical regression-policy items. Default false; deterministic critical findings remain unsuppressed regardless.'
     required: false
     default: ''
   sarif:
@@ -344,6 +360,39 @@ outputs:
   regression-gate-markdown:
     description: 'Path to the human-readable regression policy result.'
     value: ${{ steps.devshield.outputs.regression-gate-markdown }}
+  risk-exceptions-status:
+    description: 'Risk exception source status: disabled, missing, loaded, loaded-with-invalid, invalid, or invalid-path.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-status }}
+  risk-exceptions-active:
+    description: 'Number of active, valid time-bound risk exceptions.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-active }}
+  risk-exceptions-expired:
+    description: 'Number of expired exceptions ignored automatically.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-expired }}
+  risk-exceptions-invalid:
+    description: 'Number of invalid exceptions ignored.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-invalid }}
+  risk-exceptions-applied:
+    description: 'Number of regression items accepted by active exceptions.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-applied }}
+  risk-exceptions-critical-skipped:
+    description: 'Number of matching critical regression items not accepted because critical exceptions are disabled.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-critical-skipped }}
+  risk-exceptions-introduced:
+    description: 'Number of exception IDs introduced relative to the previous trusted history entry.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-introduced }}
+  risk-exceptions-renewed:
+    description: 'Number of exception IDs whose expiry was extended.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-renewed }}
+  risk-exceptions-lapsed:
+    description: 'Number of previously active exceptions removed or expired.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-lapsed }}
+  risk-exceptions-file:
+    description: 'Path to the machine-readable risk exception report.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-file }}
+  risk-exceptions-markdown:
+    description: 'Path to the human-readable risk exception summary.'
+    value: ${{ steps.devshield.outputs.risk-exceptions-markdown }}
 runs:
   using: 'composite'
   steps:
@@ -383,6 +432,10 @@ runs:
         INPUT_REGRESSION_INHERITED_DEBT: ${{ inputs.regression-inherited-debt }}
         INPUT_REGRESSION_BLAST_RADIUS_THRESHOLD: ${{ inputs.regression-blast-radius-threshold }}
         INPUT_REGRESSION_BLAST_RADIUS_ACTION: ${{ inputs.regression-blast-radius-action }}
+        INPUT_RISK_EXCEPTIONS: ${{ inputs.risk-exceptions }}
+        INPUT_RISK_EXCEPTIONS_FILE: ${{ inputs.risk-exceptions-file }}
+        INPUT_RISK_EXCEPTION_MAX_DAYS: ${{ inputs.risk-exception-max-days }}
+        INPUT_RISK_EXCEPTION_ALLOW_CRITICAL: ${{ inputs.risk-exception-allow-critical }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
