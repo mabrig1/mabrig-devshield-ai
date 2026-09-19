@@ -50,6 +50,8 @@ Options:
   --baseline-mode <mode>   new-only|report|off
   --dependency-agentic <mode> off|auto|on (auto disables working-tree correlation for local staged scans)
   --security-graph <mode>   off|auto|on (auto disables working-tree graphing for local staged scans)
+  --control-plane <mode>    off|auto|on
+  --security-graph-baseline-file <path> committed graph baseline for diffing
   --report-dir <path>      Report directory (default: .devshield)
   --no-sarif               Disable SARIF output
   -h, --help               Show this help
@@ -71,6 +73,8 @@ const baseline = options.get('baseline') || '';
 const baselineMode = options.get('baseline-mode') || '';
 const dependencyAgentic = options.get('dependency-agentic') || '';
 const securityGraph = options.get('security-graph') || '';
+const controlPlane = options.get('control-plane') || '';
+const securityGraphBaselineFile = options.get('security-graph-baseline-file') || '';
 const reportDir = options.get('report-dir') || '.devshield';
 
 process.env.GITHUB_WORKSPACE = process.cwd();
@@ -88,5 +92,7 @@ if (baseline) process.env.INPUT_BASELINE_FILE = baseline;
 if (baselineMode) process.env.INPUT_BASELINE_MODE = baselineMode;
 if (dependencyAgentic) process.env.INPUT_DEPENDENCY_AGENTIC = dependencyAgentic;
 if (securityGraph) process.env.INPUT_SECURITY_GRAPH = securityGraph;
+if (controlPlane) process.env.INPUT_CONTROL_PLANE = controlPlane;
+if (securityGraphBaselineFile) process.env.INPUT_SECURITY_GRAPH_BASELINE_FILE = securityGraphBaselineFile;
 
 await import('../src/index.mjs');
