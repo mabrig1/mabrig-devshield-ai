@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.0 turns the deterministic security engine and repository graph into a security control plane for pull-request review, evidence-backed triage, ownership hints, and remediation verification:
+Version 2.1 adds tamper-evident security history and regression detection to the v2.0 control plane, so teams can distinguish new risk, expanded exposure, reduced exposure, and inherited debt across reviewed snapshots:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -34,6 +34,7 @@ Version 2.0 turns the deterministic security engine and repository graph into a 
 - **Agentic dependency intelligence** that correlates lockfile evidence with GitHub dependency-review advisories, direct JS/TS imports, lifecycle-script metadata, CI workflows, container/IaC context, and existing security findings—while explicitly refusing to infer exploitability.
 - **Repository Security Graph** with typed file/package/finding/advisory/workflow nodes, traceable import/finding/advisory edges, contextual install edges, stable graph IDs, bounded multi-hop path discovery, and JSON/Markdown/Graphviz DOT exports.
 - **Security Control Plane** with graph snapshot diffing, bounded changed-file blast radius, evidence-weighted review-priority propagation, best-effort CODEOWNERS ownership hints, and post-remediation observation checks.
+- **Security Graph History & Regression Detection** with SHA-256 hash chaining, optional HMAC-SHA256 signing, bounded risk-exposure snapshots, and explicit `regression`, `improvement`, `unchanged`, or first-snapshot `unclassified` states.
 
 ## Quick start
 
@@ -163,6 +164,41 @@ After reviewing the candidate, commit it as `.devshield-security-graph-baseline.
 
 See [Security Control Plane](docs/CONTROL-PLANE.md).
 
+### Security Graph History & Regression Detection
+
+DevShield v2.1 can retain a reviewed, tamper-evident sequence of graph/control-plane snapshots:
+
+```yaml
+- uses: mabrig1/mabrig-devshield-ai@v1
+  with:
+    github-token: ${{ github.token }}
+    security-history: auto
+    security-history-file: .devshield-security-history.json
+    security-history-signing-key: ${{ secrets.DEVSHIELD_SECURITY_HISTORY_KEY }}
+```
+
+Without a signing key, entries are **SHA-256 hash-chained** and DevShield calls them sealed/hash-chained, not signed. When the optional secret is provided, each new entry is additionally authenticated with **HMAC-SHA256**. The key is never written to reports or Cloud telemetry.
+
+Regression classification compares stable finding/advisory nodes and their bounded graph exposure:
+
+- **new risk** — a finding/advisory node appears that was absent from the previous committed history entry;
+- **expanded exposure** — an existing risk node reaches more graph nodes than before;
+- **reduced exposure** — an existing risk node reaches fewer graph nodes;
+- **resolved risk** — a previous risk node is no longer present;
+- **unchanged inherited debt** — the same risk node remains with unchanged bounded exposure.
+
+A first snapshot is `unclassified`; DevShield does not pretend there is historical evidence when none exists.
+
+Generated artifacts:
+
+- `.devshield/devshield-security-history.json`
+- `.devshield/devshield-security-history.md`
+- `.devshield/devshield-security-history-candidate.json`
+
+After review, commit the candidate as `.devshield-security-history.json` to make it the next trusted comparison point. The Action never writes this committed history automatically.
+
+See [Security Graph History](docs/SECURITY-HISTORY.md).
+
 ### Approval-gated remediation
 
 After a scan generates an agentic plan, inspect the proposed exact hardening edits:
@@ -242,7 +278,10 @@ Create `.devshield.json` in the repository root:
   "dependencyAgenticMode": "auto",
   "securityGraphMode": "auto",
   "controlPlaneMode": "auto",
-  "securityGraphBaselineFile": ".devshield-security-graph-baseline.json"
+  "securityGraphBaselineFile": ".devshield-security-graph-baseline.json",
+  "securityHistoryMode": "auto",
+  "securityHistoryFile": ".devshield-security-history.json",
+  "securityHistoryMaxEntries": 60
 }
 ```
 
@@ -394,6 +433,10 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 | `security-graph` | config or `auto` | `off`, `auto`, or `on`; builds the repository security graph and traceable paths |
 | `control-plane` | config or `auto` | `off`, `auto`, or `on`; enables graph diffing, blast radius, review priority, ownership hints, and remediation verification |
 | `security-graph-baseline-file` | `.devshield-security-graph-baseline.json` | Reviewed committed graph snapshot used for graph diffing |
+| `security-history` | config or `auto` | `off`, `auto`, or `on`; enables tamper-evident graph history and regression classification |
+| `security-history-file` | `.devshield-security-history.json` | Reviewed committed history chain used for the next comparison |
+| `security-history-max-entries` | `60` | Maximum retained history entries, bounded to 1–200 |
+| `security-history-signing-key` | empty | Optional HMAC-SHA256 key; supply via GitHub secret, never repository config |
 | `sarif` | `true` | Generate SARIF |
 | `report-dir` | `.devshield` | Directory for machine-readable reports |
 | `cloud-api-url` | empty | Optional HTTPS DevShield Cloud ingestion endpoint |
@@ -442,6 +485,17 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 - `control-plane-file`
 - `control-plane-markdown`
 - `security-graph-baseline-candidate`
+- `security-history-state`
+- `security-history-sequence`
+- `security-history-new-risk`
+- `security-history-expanded-exposure`
+- `security-history-reduced-exposure`
+- `security-history-resolved-risk`
+- `security-history-inherited-debt`
+- `security-history-signed`
+- `security-history-file`
+- `security-history-markdown`
+- `security-history-candidate`
 
 ## Risk scoring
 
@@ -474,7 +528,7 @@ DevShield Cloud export is a separate opt-in path. Its payload contains structure
 
 DevShield is designed to complement—not impersonate—full SAST, dependency-vulnerability intelligence, secret-validity checking, and human AppSec review. Its advantage is a fast, transparent merge-risk layer that works immediately, produces portable output, and can grow into deeper repository-context analysis without forcing teams to send code to an LLM.
 
-See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow, [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md) for cross-layer package correlation, [Repository Security Graph](docs/SECURITY-GRAPH.md) for traceable graph relationships and multi-hop paths, [Security Control Plane](docs/CONTROL-PLANE.md) for graph diffing, blast radius and review coordination, and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
+See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow, [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md) for cross-layer package correlation, [Repository Security Graph](docs/SECURITY-GRAPH.md) for traceable graph relationships and multi-hop paths, [Security Control Plane](docs/CONTROL-PLANE.md) for graph diffing, blast radius and review coordination, [Security Graph History](docs/SECURITY-HISTORY.md) for hash-chained regression history, and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
 
 See [`docs/COMPETITIVE-ROADMAP.md`](docs/COMPETITIVE-ROADMAP.md) for the next expansion targets.
 
@@ -495,6 +549,7 @@ The smoke suite validates:
 - offline dependency evidence and agentic dependency correlation
 - repository security graph construction and multi-hop confidence propagation
 - security control plane graph diffing, blast radius, ownership hints, review priority, and remediation observation checks
+- security history chain integrity, optional HMAC verification, and exposure-regression classification
 - baseline new-versus-existing classification
 - staged-index CLI blocking and safe staged changes
 - merge-failure thresholds
