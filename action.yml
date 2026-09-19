@@ -150,6 +150,46 @@ inputs:
     description: 'Allow an active exception to affect critical regression-policy items. Default false; deterministic critical findings remain unsuppressed regardless.'
     required: false
     default: ''
+  runtime-guard:
+    description: 'Runtime Guard mode: off or probe. Probe sends controlled, non-destructive attack-shaped markers to an explicitly configured preview/staging URL.'
+    required: false
+    default: 'off'
+  runtime-target:
+    description: 'Absolute preview/staging URL for Runtime Guard. HTTPS is required by default.'
+    required: false
+    default: ''
+  runtime-enforce:
+    description: 'Fail the Runtime Guard step when protection signals fall below runtime-min-block-rate or probing is inconclusive.'
+    required: false
+    default: 'false'
+  runtime-min-block-rate:
+    description: 'Minimum percentage of controlled probes that must receive recognized blocking responses when runtime-enforce=true.'
+    required: false
+    default: '100'
+  runtime-timeout-ms:
+    description: 'Per-request Runtime Guard timeout in milliseconds, clamped from 1000 to 30000.'
+    required: false
+    default: '8000'
+  runtime-allow-http:
+    description: 'Allow plain HTTP targets. Keep false for hosted preview environments.'
+    required: false
+    default: 'false'
+  runtime-allow-private:
+    description: 'Allow private/local targets. Use only on a trusted self-hosted runner.'
+    required: false
+    default: 'false'
+  runtime-sarif:
+    description: 'Write a Runtime Guard SARIF 2.1.0 report.'
+    required: false
+    default: 'true'
+  runtime-auth-header:
+    description: 'Optional Authorization header value for a protected preview. Supply from a GitHub secret; never hard-code it.'
+    required: false
+    default: ''
+  runtime-vercel-bypass-token:
+    description: 'Optional Vercel Deployment Protection bypass token. Supply from a GitHub secret.'
+    required: false
+    default: ''
   sarif:
     description: 'Write a SARIF 2.1.0 report for GitHub Code Scanning or other SARIF consumers.'
     required: false
@@ -393,6 +433,30 @@ outputs:
   risk-exceptions-markdown:
     description: 'Path to the human-readable risk exception summary.'
     value: ${{ steps.devshield.outputs.risk-exceptions-markdown }}
+  runtime-guard-state:
+    description: 'Runtime Guard state: protected-signals, partial-block-signals, no-block-signals, or inconclusive-*.'
+    value: ${{ steps.runtime-guard.outputs.runtime-guard-state }}
+  runtime-probes:
+    description: 'Number of controlled runtime probes executed.'
+    value: ${{ steps.runtime-guard.outputs.runtime-probes }}
+  runtime-blocked:
+    description: 'Number of probes receiving recognized WAF-style blocking responses.'
+    value: ${{ steps.runtime-guard.outputs.runtime-blocked }}
+  runtime-passed-through:
+    description: 'Number of probes not receiving a recognized blocking or validation-rejection response.'
+    value: ${{ steps.runtime-guard.outputs.runtime-passed-through }}
+  runtime-errors:
+    description: 'Number of runtime probes that could not be evaluated.'
+    value: ${{ steps.runtime-guard.outputs.runtime-errors }}
+  runtime-block-rate:
+    description: 'Percentage of Runtime Guard probes receiving recognized block responses.'
+    value: ${{ steps.runtime-guard.outputs.runtime-block-rate }}
+  runtime-report-file:
+    description: 'Path to the Runtime Guard JSON report.'
+    value: ${{ steps.runtime-guard.outputs.runtime-report-file }}
+  runtime-sarif-file:
+    description: 'Path to the Runtime Guard SARIF report.'
+    value: ${{ steps.runtime-guard.outputs.runtime-sarif-file }}
 runs:
   using: 'composite'
   steps:
@@ -442,6 +506,22 @@ runs:
         INPUT_CLOUD_TOKEN: ${{ inputs.cloud-token }}
         INPUT_CLOUD_REQUIRED: ${{ inputs.cloud-required }}
       run: node "$GITHUB_ACTION_PATH/src/index.mjs"
+    - id: runtime-guard
+      if: ${{ inputs.runtime-guard != 'off' }}
+      shell: bash
+      env:
+        INPUT_RUNTIME_GUARD: ${{ inputs.runtime-guard }}
+        INPUT_RUNTIME_TARGET: ${{ inputs.runtime-target }}
+        INPUT_RUNTIME_ENFORCE: ${{ inputs.runtime-enforce }}
+        INPUT_RUNTIME_MIN_BLOCK_RATE: ${{ inputs.runtime-min-block-rate }}
+        INPUT_RUNTIME_TIMEOUT_MS: ${{ inputs.runtime-timeout-ms }}
+        INPUT_RUNTIME_ALLOW_HTTP: ${{ inputs.runtime-allow-http }}
+        INPUT_RUNTIME_ALLOW_PRIVATE: ${{ inputs.runtime-allow-private }}
+        INPUT_RUNTIME_SARIF: ${{ inputs.runtime-sarif }}
+        INPUT_RUNTIME_AUTH_HEADER: ${{ inputs.runtime-auth-header }}
+        INPUT_RUNTIME_VERCEL_BYPASS_TOKEN: ${{ inputs.runtime-vercel-bypass-token }}
+        INPUT_REPORT_DIR: ${{ inputs.report-dir }}
+      run: node "$GITHUB_ACTION_PATH/bin/runtime-guard.mjs"
 branding:
   icon: 'shield'
   color: 'purple'
