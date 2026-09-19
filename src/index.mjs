@@ -1166,7 +1166,7 @@ const dependencyEvidence = effectiveDependencyAgenticMode === 'off'
 const dependencyMission = createDependencyMission({
   workspace,
   evidence: dependencyEvidence,
-  findings: gateFindings,
+  findings,
   repositoryFiles: repositoryFilesForDependencyMission,
   mode: effectiveDependencyAgenticMode,
   maxFileBytes: Math.min(maxFileBytes, 750_000)
