@@ -308,7 +308,7 @@ export function appendSecurityHistory({
     riskSnapshot,
     regression: { state: regression.state, summary: regression.summary },
     ...(exceptionSnapshot ? { exceptionSnapshot } : {}),
-    ...(exceptionLifecycle ? { exceptionLifecycle: { summary: exceptionLifecycle.summary } } : {}),
+    ...(exceptionLifecycle ? { exceptionLifecycle } : {}),
     previousEntryHash: previousEntry && previousEntry.entryHash || null
   };
   const entryHash = sha256(canonical(payload));
