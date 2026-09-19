@@ -1,18 +1,20 @@
 {
   "name": "mabrig-devshield-ai-action",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "private": true,
   "type": "module",
   "bin": {
     "devshield": "bin/devshield.mjs",
     "devshield-remediate": "bin/remediate.mjs",
-    "devshield-inventory": "bin/inventory.mjs"
+    "devshield-inventory": "bin/inventory.mjs",
+    "devshield-runtime": "bin/runtime-guard.mjs"
   },
   "scripts": {
     "test": "bash test/smoke.sh",
     "scan": "node bin/devshield.mjs",
     "remediate": "node bin/remediate.mjs",
-    "inventory": "node bin/inventory.mjs"
+    "inventory": "node bin/inventory.mjs",
+    "runtime": "node bin/runtime-guard.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.3 adds time-bound, reviewable risk acceptance on top of the v2.2 regression gate, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
+Version 2.4 adds an opt-in Runtime Guard for preview/staging WAF coverage checks on top of the v2.3 time-bound risk acceptance system, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -37,6 +37,7 @@ Version 2.3 adds time-bound, reviewable risk acceptance on top of the v2.2 regre
 - **Security Graph History & Regression Detection** with SHA-256 hash chaining, optional HMAC-SHA256 signing, bounded risk-exposure snapshots, and explicit `regression`, `improvement`, `unchanged`, or first-snapshot `unclassified` states.
 - **Policy-Aware Regression Gates** with report-only defaults, opt-in enforcement, severity thresholds for new risk, warn/block controls for expanded exposure, inherited-debt visibility, and optional blast-radius owner approval using verifiable individual CODEOWNERS reviews.
 - **Time-Bound Risk Acceptance** with owner/rationale/review/expiry metadata, fingerprint or graph-path scoping, automatic expiry, critical-regression refusal by default, and lifecycle history for introduced, renewed, lapsed, and scope-changed exceptions.
+- **Runtime Guard** for opt-in preview/staging checks using controlled, non-destructive attack-shaped markers, HTTPS/private-network guardrails, JSON/SARIF evidence, optional enforcement, and Vercel Deployment Protection bypass support.
 
 ## Quick start
 
@@ -66,6 +67,21 @@ jobs:
 ```
 
 The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.
+
+## Runtime Guard
+
+Runtime Guard is disabled by default. Enable it only for an explicitly configured preview or staging URL:
+
+```yaml
+- uses: mabrig1/mabrig-devshield-ai@main
+  with:
+    fail-on: critical
+    runtime-guard: probe
+    runtime-target: ${{ steps.preview.outputs.url }}
+    runtime-enforce: false
+```
+
+Runtime Guard currently measures runtime/WAF protection signals; a passed-through marker is **not** proof that the application is exploitable. See [Runtime Guard v2.4](docs/runtime-guard.md) for safety defaults, protected-preview configuration, outputs, and enforcement guidance.
 
 ## Local CLI and pre-commit protection
 
