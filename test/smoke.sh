@@ -7,6 +7,7 @@ node --test "$ACTION_ROOT/test/agentic-engine.test.mjs"
 node --test "$ACTION_ROOT/test/remediation-engine.test.mjs"
 node --test "$ACTION_ROOT/test/inventory.test.mjs"
 node --test "$ACTION_ROOT/test/dependency-agent.test.mjs"
+node --test "$ACTION_ROOT/test/security-graph.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -451,4 +452,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v1.8 agentic dependency intelligence smoke tests passed."
+echo "DevShield v1.9 repository security graph smoke tests passed."

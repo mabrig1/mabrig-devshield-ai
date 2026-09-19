@@ -17,5 +17,6 @@
   "baselineMode": "new-only",
   "agenticMode": "plan",
   "remediationMode": "propose",
-  "dependencyAgenticMode": "auto"
+  "dependencyAgenticMode": "auto",
+  "securityGraphMode": "auto"
 }
