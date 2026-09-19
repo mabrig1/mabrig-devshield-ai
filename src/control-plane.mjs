@@ -216,6 +216,7 @@ export function calculateBlastRadius(graph, changedFiles = [], { maxDepth = 3, m
   const count = type => impacted.filter(item => item.nodeType === type).length;
   return {
     changedFilesMatched: starts.length,
+    changedFiles: starts.map(item => item.file),
     maxDepth,
     impacted,
     summary: {
@@ -304,11 +305,11 @@ export function verifyRemediationObservations(graph, remediationPlan) {
 
 function ownershipSummary(graph, ownership, blast) {
   const files = new Map(graph.nodes.filter(node => node.type === 'file' && node.attributes && node.attributes.path).map(node => [node.id, node]));
-  const relevant = [...new Set((blast.impacted || []).filter(item => item.nodeType === 'file').map(item => item.nodeId))];
-  const hints = relevant.map(id => {
-    const node = files.get(id);
-    return node ? { file: node.attributes.path, ...ownerHintForFile(node.attributes.path, ownership) } : null;
-  }).filter(Boolean);
+  const relevantPaths = new Set(Array.isArray(blast.changedFiles) ? blast.changedFiles : []);
+  for (const item of blast.impacted || []) {
+    if (item.nodeType === 'file' && item.attributes && item.attributes.path) relevantPaths.add(item.attributes.path);
+  }
+  const hints = [...relevantPaths].sort().map(file => ({ file, ...ownerHintForFile(file, ownership) }));
   const counts = new Map();
   for (const hint of hints) for (const owner of hint.owners) counts.set(owner, (counts.get(owner) || 0) + 1);
   return {
@@ -332,7 +333,7 @@ export function createSecurityControlPlane({ graph, baseline = { status: 'missin
       summary: { graphChanges: 0, blastRadiusNodes: 0, rankedNodes: 0, ownershipHints: 0, remediationChecks: 0 },
       guardrails: { exploitProbability: false, automaticOwnershipAssignment: false, repositoryMutation: false },
       graphDiff: diffSecurityGraphs(graph, null),
-      blastRadius: { changedFilesMatched: 0, impacted: [], summary: { impactedNodes: 0, files: 0, packages: 0, findings: 0, advisories: 0, evidenceLinked: 0, contextual: 0 } },
+      blastRadius: { changedFilesMatched: 0, changedFiles: [], impacted: [], summary: { impactedNodes: 0, files: 0, packages: 0, findings: 0, advisories: 0, evidenceLinked: 0, contextual: 0 } },
       reviewPriority: { methodology: 'disabled', ranked: [], summary: { rankedNodes: 0, highPriority: 0, mediumPriority: 0, contextual: 0 } },
       ownership: { sourceStatus: ownership.status, sourceFile: ownership.file, hints: [], owners: [] },
       remediationVerification: { candidates: [], summary: { checked: 0, stillObserved: 0, notObserved: 0 } }
