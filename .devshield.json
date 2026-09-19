@@ -18,5 +18,7 @@
   "agenticMode": "plan",
   "remediationMode": "propose",
   "dependencyAgenticMode": "auto",
-  "securityGraphMode": "auto"
+  "securityGraphMode": "auto",
+  "controlPlaneMode": "auto",
+  "securityGraphBaselineFile": ".devshield-security-graph-baseline.json"
 }
