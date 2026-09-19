@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 1.8 combines the deterministic security engine with agentic analysis, dependency-context correlation, managed Cloud integration, and approval-gated remediation:
+Version 1.9 combines the deterministic security engine with a traceable repository security graph, agentic analysis, dependency-context correlation, managed Cloud integration, and approval-gated remediation:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -32,6 +32,7 @@ Version 1.8 combines the deterministic security engine with agentic analysis, de
 - **Approval-gated remediation proposals** that generate exact allowlisted patch candidates in CI while requiring a matching mission approval before any local source mutation.
 - **Offline npm dependency evidence** for lockfile package identity, declared license, integrity metadata, source transport, stable fingerprints, and policy gating without package installation.
 - **Agentic dependency intelligence** that correlates lockfile evidence with GitHub dependency-review advisories, direct JS/TS imports, lifecycle-script metadata, CI workflows, container/IaC context, and existing security findings—while explicitly refusing to infer exploitability.
+- **Repository Security Graph** with typed file/package/finding/advisory/workflow nodes, traceable import/finding/advisory edges, contextual install edges, stable graph IDs, bounded multi-hop path discovery, and JSON/Markdown/Graphviz DOT exports.
 
 ## Quick start
 
@@ -109,6 +110,31 @@ Reports are written to `.devshield/devshield-dependency-mission.json` and `.devs
 
 See [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md).
 
+### Repository Security Graph
+
+DevShield v1.9 turns repository evidence into a bounded graph instead of flattening every signal into a list:
+
+```yaml
+- uses: mabrig1/mabrig-devshield-ai@v1
+  with:
+    github-token: ${{ github.token }}
+    security-graph: auto
+```
+
+Graph nodes include files, packages, findings, and dependency advisories. Direct edges represent concrete evidence such as package imports, relative source imports, a finding located in a file, or an advisory attached to a package. Contextual edges represent weaker repository context, such as a workflow that runs dependency installation.
+
+The graph derives prioritized multi-hop review paths such as **package → imported module → API route**, **package → source file → security finding**, and **package → dependency-install workflow → CI finding**. Path confidence inherits the weakest edge, so a contextual relationship cannot become a confirmed exploit chain merely because it appears in a longer path.
+
+Artifacts:
+
+- `.devshield/devshield-security-graph.json`
+- `.devshield/devshield-security-graph.md`
+- `.devshield/devshield-security-graph.dot`
+
+The graph stores no source snippets or secret values. In local staged scans, `security-graph: auto` disables working-tree graphing to avoid mixing staged and unstaged evidence.
+
+See [Repository Security Graph](docs/SECURITY-GRAPH.md).
+
 ### Approval-gated remediation
 
 After a scan generates an agentic plan, inspect the proposed exact hardening edits:
@@ -185,7 +211,8 @@ Create `.devshield.json` in the repository root:
   "baselineMode": "new-only",
   "agenticMode": "plan",
   "remediationMode": "propose",
-  "dependencyAgenticMode": "auto"
+  "dependencyAgenticMode": "auto",
+  "securityGraphMode": "auto"
 }
 ```
 
@@ -334,6 +361,7 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 | `agentic-mode` | config or `plan` | `off`, `plan`, or `ai` |
 | `remediation-mode` | config or `propose` | `off` or proposal-only `propose` |
 | `dependency-agentic` | config or `auto` | `off`, `auto`, or `on`; correlates lockfile/dependency/source/CI context |
+| `security-graph` | config or `auto` | `off`, `auto`, or `on`; builds the repository security graph and traceable paths |
 | `sarif` | `true` | Generate SARIF |
 | `report-dir` | `.devshield` | Directory for machine-readable reports |
 | `cloud-api-url` | empty | Optional HTTPS DevShield Cloud ingestion endpoint |
@@ -366,6 +394,13 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 - `dependency-agentic-paths`
 - `dependency-agentic-references`
 - `dependency-agentic-plan-file`
+- `security-graph-state`
+- `security-graph-nodes`
+- `security-graph-edges`
+- `security-graph-paths`
+- `security-graph-file`
+- `security-graph-markdown`
+- `security-graph-dot`
 
 ## Risk scoring
 
@@ -398,7 +433,7 @@ DevShield Cloud export is a separate opt-in path. Its payload contains structure
 
 DevShield is designed to complement—not impersonate—full SAST, dependency-vulnerability intelligence, secret-validity checking, and human AppSec review. Its advantage is a fast, transparent merge-risk layer that works immediately, produces portable output, and can grow into deeper repository-context analysis without forcing teams to send code to an LLM.
 
-See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow, [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md) for cross-layer package correlation, and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
+See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow, [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md) for cross-layer package correlation, [Repository Security Graph](docs/SECURITY-GRAPH.md) for traceable graph relationships and multi-hop paths, and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
 
 See [`docs/COMPETITIVE-ROADMAP.md`](docs/COMPETITIVE-ROADMAP.md) for the next expansion targets.
 
@@ -417,6 +452,7 @@ The smoke suite validates:
 - JSON/SARIF generation
 - dependency-review findings and license policy
 - offline dependency evidence and agentic dependency correlation
+- repository security graph construction and multi-hop confidence propagation
 - baseline new-versus-existing classification
 - staged-index CLI blocking and safe staged changes
 - merge-failure thresholds
