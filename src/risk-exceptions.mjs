@@ -56,6 +56,7 @@ function validateException(raw, { nowMs, maxDays }) {
   if (!owner || owner.length > 160) errors.push('owner');
   if (rationale.length < 12 || rationale.length > 1000) errors.push('rationale');
   if (reviewedMs == null) errors.push('reviewedAt');
+  if (reviewedMs != null && reviewedMs > nowMs + 5 * 60 * 1000) errors.push('reviewedAt-future');
   if (expiresMs == null) errors.push('expiresAt');
   if (reviewedMs != null && expiresMs != null && expiresMs <= reviewedMs) errors.push('expiry-order');
   if (reviewedMs != null && expiresMs != null && expiresMs - reviewedMs > maxDays * 86400000) errors.push('max-duration');
@@ -110,14 +111,13 @@ export function loadRiskExceptions({
   if (nowMs == null) throw new Error('now must be a valid date');
   const cappedDays = Math.max(1, Math.min(365, Number(maxDays) || 90));
   const all = raw.exceptions.slice(0, 500).map(item => validateException(item, { nowMs, maxDays: cappedDays }));
-  const ids = new Set();
+  const idCounts = new Map();
+  for (const item of all) if (item.id) idCounts.set(item.id, (idCounts.get(item.id) || 0) + 1);
   for (const item of all) {
-    if (!item.id) continue;
-    if (ids.has(item.id)) {
+    if (item.id && (idCounts.get(item.id) || 0) > 1) {
       item.status = 'invalid';
       if (!item.errors.includes('duplicate-id')) item.errors.push('duplicate-id');
     }
-    ids.add(item.id);
   }
   const active = all.filter(item => item.status === 'active');
   const expired = all.filter(item => item.status === 'expired');
