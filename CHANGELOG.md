@@ -4,6 +4,22 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.4.0] - 2026-09-19
+
+### Added
+- Opt-in Runtime Guard `probe` mode for preview and staging URLs.
+- Controlled, non-destructive XSS-shaped, SQLi-shaped, and traversal-shaped WAF coverage markers.
+- HTTPS-by-default target validation with private/local/non-routable target rejection by default.
+- Runtime JSON and SARIF evidence plus GitHub job-summary output.
+- Optional enforcement through a configurable minimum block rate.
+- Vercel Deployment Protection bypass-token and optional Authorization-header support.
+- Dedicated `devshield-runtime` CLI entry point and six Runtime Guard unit tests.
+
+### Security
+- Runtime target reports strip credentials, query strings, and fragments.
+- Redirects are not automatically followed during runtime probing.
+- Runtime Guard is disabled by default and does not claim that a passed-through marker proves exploitability.
+
 - Time-bound risk acceptance file with owner, rationale, review timestamp, expiry timestamp, and fingerprint/path scopes.
 - Automatic expiry and configurable maximum acceptance duration from 1 to 365 days.
 - Risk exceptions affect only the regression-policy view; deterministic findings, SARIF, annotations, graph/history evidence, and `fail-on` remain unchanged.
