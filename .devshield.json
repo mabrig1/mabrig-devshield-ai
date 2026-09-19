@@ -20,5 +20,8 @@
   "dependencyAgenticMode": "auto",
   "securityGraphMode": "auto",
   "controlPlaneMode": "auto",
-  "securityGraphBaselineFile": ".devshield-security-graph-baseline.json"
+  "securityGraphBaselineFile": ".devshield-security-graph-baseline.json",
+  "securityHistoryMode": "auto",
+  "securityHistoryFile": ".devshield-security-history.json",
+  "securityHistoryMaxEntries": 60
 }
