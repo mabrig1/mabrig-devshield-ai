@@ -48,6 +48,19 @@ export function createDependencyInventory(raw, { sourceFile = 'package-lock.json
   }
   const entries = Object.entries(lock.packages);
   if (entries.length > 100_000) throw new Error('Lockfile exceeds the 100000 package limit.');
+  const root = object(lock.packages['']) ? lock.packages[''] : {};
+  const rootDeclarations = [
+    ['runtime', object(root.dependencies) ? root.dependencies : {}],
+    ['development', object(root.devDependencies) ? root.devDependencies : {}],
+    ['optional', object(root.optionalDependencies) ? root.optionalDependencies : {}],
+    ['peer', object(root.peerDependencies) ? root.peerDependencies : {}]
+  ];
+  const declaredByRoot = (...names) => {
+    const candidates = names.filter(Boolean);
+    return rootDeclarations
+      .filter(([, dependencies]) => candidates.some(name => Object.hasOwn(dependencies, name)))
+      .map(([kind]) => kind);
+  };
   const packages = [];
   const findings = [];
   for (const [location, entry] of entries.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
@@ -57,6 +70,7 @@ export function createDependencyInventory(raw, { sourceFile = 'package-lock.json
       throw new Error('Lockfile contains an unsafe package location.');
     }
     const inferred = location.includes('node_modules/') ? location.split('node_modules/').at(-1) : '';
+    const installName = namePattern.test(inferred) ? inferred : null;
     const candidateName = text(entry.name) || inferred;
     const name = namePattern.test(candidateName) ? candidateName : null;
     const version = versionPattern.test(text(entry.version)) ? entry.version : null;
@@ -72,7 +86,8 @@ export function createDependencyInventory(raw, { sourceFile = 'package-lock.json
     if (!local && integrity.algorithms.length === 1 && integrity.algorithms[0] === 'sha1') add('dependency-weak-integrity', 'low', 'Only a SHA-1 integrity digest is recorded.', 'Where supported, refresh metadata to include SHA-512 integrity.');
     if (!local && source.kind === 'unknown') add('dependency-source-unknown', 'low', 'Dependency source is not recorded or recognised.', 'Review registry configuration and package origin before installation.');
     const item = {
-      location, name, version,
+      location, name, installName, version,
+      declaredByRoot: declaredByRoot(installName, name),
       packageUrl: name && version ? `pkg:npm/${name.split('/').map(encodeURIComponent).join('/')}@${encodeURIComponent(version)}` : null,
       source,
       license: { status: declaredLicense ? 'declared-unverified' : 'unknown', expression: declaredLicense },
@@ -91,6 +106,7 @@ export function createDependencyInventory(raw, { sourceFile = 'package-lock.json
     coverage: { ecosystem: 'npm', networkAccess: false, vulnerabilityCheck: 'not-performed', signatureCheck: 'not-performed', artifactIntegrityCheck: 'not-performed', licenseVerification: 'not-performed' },
     summary: {
       packages: packages.length, findings: findings.length,
+      directDeclarations: packages.filter(p => p.declaredByRoot.length > 0).length,
       unknownLicenses: packages.filter(p => p.license.status === 'unknown').length,
       installScriptsDeclared: packages.filter(p => p.installScript === 'declared').length,
       bySeverity: Object.fromEntries(['high', 'medium', 'low'].map(s => [s, findings.filter(f => f.severity === s).length]))
