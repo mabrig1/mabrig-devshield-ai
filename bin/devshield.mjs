@@ -49,6 +49,7 @@ Options:
   --baseline <path>        Baseline file
   --baseline-mode <mode>   new-only|report|off
   --dependency-agentic <mode> off|auto|on (auto disables working-tree correlation for local staged scans)
+  --security-graph <mode>   off|auto|on (auto disables working-tree graphing for local staged scans)
   --report-dir <path>      Report directory (default: .devshield)
   --no-sarif               Disable SARIF output
   -h, --help               Show this help
@@ -69,6 +70,7 @@ const exclude = options.get('exclude') || '';
 const baseline = options.get('baseline') || '';
 const baselineMode = options.get('baseline-mode') || '';
 const dependencyAgentic = options.get('dependency-agentic') || '';
+const securityGraph = options.get('security-graph') || '';
 const reportDir = options.get('report-dir') || '.devshield';
 
 process.env.GITHUB_WORKSPACE = process.cwd();
@@ -85,5 +87,6 @@ if (exclude) process.env.INPUT_EXCLUDE_PATHS = exclude;
 if (baseline) process.env.INPUT_BASELINE_FILE = baseline;
 if (baselineMode) process.env.INPUT_BASELINE_MODE = baselineMode;
 if (dependencyAgentic) process.env.INPUT_DEPENDENCY_AGENTIC = dependencyAgentic;
+if (securityGraph) process.env.INPUT_SECURITY_GRAPH = securityGraph;
 
 await import('../src/index.mjs');
