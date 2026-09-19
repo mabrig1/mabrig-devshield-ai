@@ -4,6 +4,19 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Security Control Plane coordinating Repository Security Graph evidence into review workflows.
+- Stable graph snapshot diffing with added/removed nodes, edges, paths, new finding nodes, and no-longer-observed finding nodes.
+- Bounded changed-file blast-radius analysis with direct/contextual confidence preservation.
+- Evidence-weighted review-priority propagation with deterministic decay; explicitly not CVSS or exploit probability.
+- Best-effort CODEOWNERS ownership hints for impacted graph files.
+- Remediation observation checks reporting `still-observed` or `not-observed-after-scan`.
+- Reviewed graph baseline candidate generation for future graph-diff comparisons.
+- Privacy-safe Cloud export adds only aggregate control-plane/diff metadata, not graph contents or ownership mappings.
+- New Action/CLI controls and outputs for the v2.0 control plane.
+
+## [1.9.0] - 2026-09-19
+
+### Added
 - Repository Security Graph with typed package, file, finding, and advisory nodes.
 - Direct evidence edges for package imports, relative module imports, file findings, and package advisories.
 - Contextual workflow-install edges that remain explicitly weaker than direct evidence.
