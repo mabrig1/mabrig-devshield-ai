@@ -4,6 +4,18 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Tamper-evident Security Graph History with SHA-256 hash chaining.
+- Optional HMAC-SHA256 entry signing through a secret input/environment key; signing keys are never written to reports or Cloud telemetry.
+- Longitudinal classification for new risk, expanded exposure, reduced exposure, resolved risk, and unchanged inherited debt.
+- Bounded risk-exposure snapshots for finding/advisory graph nodes.
+- History integrity/signature validation before a committed history is trusted.
+- Reviewed security-history candidate generation with configurable retention from 1 to 200 entries.
+- Compact history/regression summary added to optional AI context and privacy-safe Cloud metadata.
+- New Action/CLI controls and outputs for v2.1 security history.
+
+## [2.0.0] - 2026-09-19
+
+### Added
 - Security Control Plane coordinating Repository Security Graph evidence into review workflows.
 - Stable graph snapshot diffing with added/removed nodes, edges, paths, new finding nodes, and no-longer-observed finding nodes.
 - Bounded changed-file blast-radius analysis with direct/contextual confidence preservation.

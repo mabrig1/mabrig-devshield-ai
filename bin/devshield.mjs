@@ -52,7 +52,11 @@ Options:
   --security-graph <mode>   off|auto|on (auto disables working-tree graphing for local staged scans)
   --control-plane <mode>    off|auto|on
   --security-graph-baseline-file <path> committed graph baseline for diffing
+  --security-history <mode> off|auto|on
+  --security-history-file <path> committed security history JSON
+  --security-history-max-entries <n> retain 1..200 entries
   --report-dir <path>      Report directory (default: .devshield)
+  Signing key: set DEVSHIELD_SECURITY_HISTORY_SIGNING_KEY in the environment; do not pass secrets on the command line.
   --no-sarif               Disable SARIF output
   -h, --help               Show this help
 
@@ -75,6 +79,9 @@ const dependencyAgentic = options.get('dependency-agentic') || '';
 const securityGraph = options.get('security-graph') || '';
 const controlPlane = options.get('control-plane') || '';
 const securityGraphBaselineFile = options.get('security-graph-baseline-file') || '';
+const securityHistory = options.get('security-history') || '';
+const securityHistoryFile = options.get('security-history-file') || '';
+const securityHistoryMaxEntries = options.get('security-history-max-entries') || '';
 const reportDir = options.get('report-dir') || '.devshield';
 
 process.env.GITHUB_WORKSPACE = process.cwd();
@@ -94,5 +101,8 @@ if (dependencyAgentic) process.env.INPUT_DEPENDENCY_AGENTIC = dependencyAgentic;
 if (securityGraph) process.env.INPUT_SECURITY_GRAPH = securityGraph;
 if (controlPlane) process.env.INPUT_CONTROL_PLANE = controlPlane;
 if (securityGraphBaselineFile) process.env.INPUT_SECURITY_GRAPH_BASELINE_FILE = securityGraphBaselineFile;
+if (securityHistory) process.env.INPUT_SECURITY_HISTORY = securityHistory;
+if (securityHistoryFile) process.env.INPUT_SECURITY_HISTORY_FILE = securityHistoryFile;
+if (securityHistoryMaxEntries) process.env.INPUT_SECURITY_HISTORY_MAX_ENTRIES = securityHistoryMaxEntries;
 
 await import('../src/index.mjs');
