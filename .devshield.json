@@ -23,5 +23,11 @@
   "securityGraphBaselineFile": ".devshield-security-graph-baseline.json",
   "securityHistoryMode": "auto",
   "securityHistoryFile": ".devshield-security-history.json",
-  "securityHistoryMaxEntries": 60
+  "securityHistoryMaxEntries": 60,
+  "regressionGateMode": "report",
+  "regressionNewRiskSeverity": "critical",
+  "regressionExpandedExposure": "warn",
+  "regressionInheritedDebt": "ignore",
+  "regressionBlastRadiusThreshold": 0,
+  "regressionBlastRadiusAction": "warn"
 }

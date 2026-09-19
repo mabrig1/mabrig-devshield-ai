@@ -55,6 +55,12 @@ Options:
   --security-history <mode> off|auto|on
   --security-history-file <path> committed security history JSON
   --security-history-max-entries <n> retain 1..200 entries
+  --regression-gate <mode> off|report|enforce
+  --regression-new-risk-severity <severity> critical|high|medium|low|none
+  --regression-expanded-exposure <action> ignore|warn|block
+  --regression-inherited-debt <action> ignore|warn
+  --regression-blast-radius-threshold <n> 0 disables threshold policy
+  --regression-blast-radius-action <action> ignore|warn|block|require-owner-approval
   --report-dir <path>      Report directory (default: .devshield)
   Signing key: set DEVSHIELD_SECURITY_HISTORY_SIGNING_KEY in the environment; do not pass secrets on the command line.
   --no-sarif               Disable SARIF output
@@ -82,6 +88,12 @@ const securityGraphBaselineFile = options.get('security-graph-baseline-file') ||
 const securityHistory = options.get('security-history') || '';
 const securityHistoryFile = options.get('security-history-file') || '';
 const securityHistoryMaxEntries = options.get('security-history-max-entries') || '';
+const regressionGate = options.get('regression-gate') || '';
+const regressionNewRiskSeverity = options.get('regression-new-risk-severity') || '';
+const regressionExpandedExposure = options.get('regression-expanded-exposure') || '';
+const regressionInheritedDebt = options.get('regression-inherited-debt') || '';
+const regressionBlastRadiusThreshold = options.get('regression-blast-radius-threshold') || '';
+const regressionBlastRadiusAction = options.get('regression-blast-radius-action') || '';
 const reportDir = options.get('report-dir') || '.devshield';
 
 process.env.GITHUB_WORKSPACE = process.cwd();
@@ -104,5 +116,11 @@ if (securityGraphBaselineFile) process.env.INPUT_SECURITY_GRAPH_BASELINE_FILE = 
 if (securityHistory) process.env.INPUT_SECURITY_HISTORY = securityHistory;
 if (securityHistoryFile) process.env.INPUT_SECURITY_HISTORY_FILE = securityHistoryFile;
 if (securityHistoryMaxEntries) process.env.INPUT_SECURITY_HISTORY_MAX_ENTRIES = securityHistoryMaxEntries;
+if (regressionGate) process.env.INPUT_REGRESSION_GATE = regressionGate;
+if (regressionNewRiskSeverity) process.env.INPUT_REGRESSION_NEW_RISK_SEVERITY = regressionNewRiskSeverity;
+if (regressionExpandedExposure) process.env.INPUT_REGRESSION_EXPANDED_EXPOSURE = regressionExpandedExposure;
+if (regressionInheritedDebt) process.env.INPUT_REGRESSION_INHERITED_DEBT = regressionInheritedDebt;
+if (regressionBlastRadiusThreshold) process.env.INPUT_REGRESSION_BLAST_RADIUS_THRESHOLD = regressionBlastRadiusThreshold;
+if (regressionBlastRadiusAction) process.env.INPUT_REGRESSION_BLAST_RADIUS_ACTION = regressionBlastRadiusAction;
 
 await import('../src/index.mjs');

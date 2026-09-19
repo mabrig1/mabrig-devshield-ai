@@ -10,6 +10,7 @@ node --test "$ACTION_ROOT/test/dependency-agent.test.mjs"
 node --test "$ACTION_ROOT/test/security-graph.test.mjs"
 node --test "$ACTION_ROOT/test/control-plane.test.mjs"
 node --test "$ACTION_ROOT/test/security-history.test.mjs"
+node --test "$ACTION_ROOT/test/regression-policy.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -454,4 +455,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.1 security graph history smoke tests passed."
+echo "DevShield v2.2 policy-aware regression gate smoke tests passed."

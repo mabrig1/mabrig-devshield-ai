@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security control plane for pull requests with tamper-evident graph history, regression detection, blast-radius analysis, ownership hints, remediation verification, SARIF, and optional AI analysis.'
+description: 'Security control plane for pull requests with policy-aware regression gates, tamper-evident graph history, blast-radius analysis, owner-approval evidence, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -108,6 +108,30 @@ inputs:
     default: ''
   security-history-signing-key:
     description: 'Optional HMAC signing key. Pass a GitHub secret; the value is never written to reports or Cloud telemetry.'
+    required: false
+    default: ''
+  regression-gate:
+    description: 'Regression gate mode: off, report, or enforce. report never fails CI.'
+    required: false
+    default: ''
+  regression-new-risk-severity:
+    description: 'Block-class threshold for newly introduced risk nodes: critical, high, medium, low, or none.'
+    required: false
+    default: ''
+  regression-expanded-exposure:
+    description: 'Policy action for expanded graph exposure: ignore, warn, or block.'
+    required: false
+    default: ''
+  regression-inherited-debt:
+    description: 'Policy action for unchanged inherited debt: ignore or warn.'
+    required: false
+    default: ''
+  regression-blast-radius-threshold:
+    description: 'Impacted-node threshold for blast-radius policy. 0 disables threshold enforcement.'
+    required: false
+    default: ''
+  regression-blast-radius-action:
+    description: 'Blast-radius policy action: ignore, warn, block, or require-owner-approval.'
     required: false
     default: ''
   sarif:
@@ -296,6 +320,30 @@ outputs:
   security-history-candidate:
     description: 'Path to the updated tamper-evident history candidate for reviewed commit.'
     value: ${{ steps.devshield.outputs.security-history-candidate }}
+  regression-gate-state:
+    description: 'Regression gate state: disabled, passed, warn, block, approval-required, or failed.'
+    value: ${{ steps.devshield.outputs.regression-gate-state }}
+  regression-gate-decision:
+    description: 'Highest regression policy decision: pass, warn, block, or approval-required.'
+    value: ${{ steps.devshield.outputs.regression-gate-decision }}
+  regression-gate-failed:
+    description: 'Whether enforce mode caused the regression gate to fail.'
+    value: ${{ steps.devshield.outputs.regression-gate-failed }}
+  regression-gate-blocks:
+    description: 'Number of regression policy rules producing block outcomes.'
+    value: ${{ steps.devshield.outputs.regression-gate-blocks }}
+  regression-gate-warnings:
+    description: 'Number of regression policy rules producing warnings.'
+    value: ${{ steps.devshield.outputs.regression-gate-warnings }}
+  regression-gate-approval-required:
+    description: 'Number of regression policy rules awaiting verifiable owner approval.'
+    value: ${{ steps.devshield.outputs.regression-gate-approval-required }}
+  regression-gate-file:
+    description: 'Path to the machine-readable regression policy result.'
+    value: ${{ steps.devshield.outputs.regression-gate-file }}
+  regression-gate-markdown:
+    description: 'Path to the human-readable regression policy result.'
+    value: ${{ steps.devshield.outputs.regression-gate-markdown }}
 runs:
   using: 'composite'
   steps:
@@ -329,6 +377,12 @@ runs:
         INPUT_SECURITY_HISTORY_FILE: ${{ inputs.security-history-file }}
         INPUT_SECURITY_HISTORY_MAX_ENTRIES: ${{ inputs.security-history-max-entries }}
         INPUT_SECURITY_HISTORY_SIGNING_KEY: ${{ inputs.security-history-signing-key }}
+        INPUT_REGRESSION_GATE: ${{ inputs.regression-gate }}
+        INPUT_REGRESSION_NEW_RISK_SEVERITY: ${{ inputs.regression-new-risk-severity }}
+        INPUT_REGRESSION_EXPANDED_EXPOSURE: ${{ inputs.regression-expanded-exposure }}
+        INPUT_REGRESSION_INHERITED_DEBT: ${{ inputs.regression-inherited-debt }}
+        INPUT_REGRESSION_BLAST_RADIUS_THRESHOLD: ${{ inputs.regression-blast-radius-threshold }}
+        INPUT_REGRESSION_BLAST_RADIUS_ACTION: ${{ inputs.regression-blast-radius-action }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
