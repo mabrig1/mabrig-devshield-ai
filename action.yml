@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security control plane for pull requests with graph diffing, blast-radius analysis, ownership hints, remediation verification, agentic dependency intelligence, SARIF, and optional AI analysis.'
+description: 'Security control plane for pull requests with tamper-evident graph history, regression detection, blast-radius analysis, ownership hints, remediation verification, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -91,7 +91,23 @@ inputs:
     required: false
     default: ''
   security-graph-baseline-file:
-    description: 'Repository-relative committed graph baseline used for v2.0 graph diffing.'
+    description: 'Repository-relative committed graph baseline used for control-plane graph diffing.'
+    required: false
+    default: ''
+  security-history:
+    description: 'Security graph history: off, auto, or on. Adds tamper-evident history and regression classification.'
+    required: false
+    default: ''
+  security-history-file:
+    description: 'Repository-relative committed security history JSON file.'
+    required: false
+    default: ''
+  security-history-max-entries:
+    description: 'Maximum retained history entries, from 1 to 200.'
+    required: false
+    default: ''
+  security-history-signing-key:
+    description: 'Optional HMAC signing key. Pass a GitHub secret; the value is never written to reports or Cloud telemetry.'
     required: false
     default: ''
   sarif:
@@ -247,6 +263,39 @@ outputs:
   security-graph-baseline-candidate:
     description: 'Path to the current graph snapshot suitable for reviewed baseline adoption.'
     value: ${{ steps.devshield.outputs.security-graph-baseline-candidate }}
+  security-history-state:
+    description: 'History regression state: disabled, unclassified, regression, improvement, or unchanged.'
+    value: ${{ steps.devshield.outputs.security-history-state }}
+  security-history-sequence:
+    description: 'Sequence number of the generated history entry.'
+    value: ${{ steps.devshield.outputs.security-history-sequence }}
+  security-history-new-risk:
+    description: 'New risk nodes compared with the previous committed history entry.'
+    value: ${{ steps.devshield.outputs.security-history-new-risk }}
+  security-history-expanded-exposure:
+    description: 'Existing risk nodes whose bounded graph exposure increased.'
+    value: ${{ steps.devshield.outputs.security-history-expanded-exposure }}
+  security-history-reduced-exposure:
+    description: 'Existing risk nodes whose bounded graph exposure decreased.'
+    value: ${{ steps.devshield.outputs.security-history-reduced-exposure }}
+  security-history-resolved-risk:
+    description: 'Risk nodes no longer present in the current graph.'
+    value: ${{ steps.devshield.outputs.security-history-resolved-risk }}
+  security-history-inherited-debt:
+    description: 'Unchanged risk nodes with unchanged bounded exposure.'
+    value: ${{ steps.devshield.outputs.security-history-inherited-debt }}
+  security-history-signed:
+    description: 'Whether the generated history entry is HMAC-signed.'
+    value: ${{ steps.devshield.outputs.security-history-signed }}
+  security-history-file:
+    description: 'Path to the current security history summary JSON.'
+    value: ${{ steps.devshield.outputs.security-history-file }}
+  security-history-markdown:
+    description: 'Path to the human-readable security history summary.'
+    value: ${{ steps.devshield.outputs.security-history-markdown }}
+  security-history-candidate:
+    description: 'Path to the updated tamper-evident history candidate for reviewed commit.'
+    value: ${{ steps.devshield.outputs.security-history-candidate }}
 runs:
   using: 'composite'
   steps:
@@ -276,6 +325,10 @@ runs:
         INPUT_SECURITY_GRAPH: ${{ inputs.security-graph }}
         INPUT_CONTROL_PLANE: ${{ inputs.control-plane }}
         INPUT_SECURITY_GRAPH_BASELINE_FILE: ${{ inputs.security-graph-baseline-file }}
+        INPUT_SECURITY_HISTORY: ${{ inputs.security-history }}
+        INPUT_SECURITY_HISTORY_FILE: ${{ inputs.security-history-file }}
+        INPUT_SECURITY_HISTORY_MAX_ENTRIES: ${{ inputs.security-history-max-entries }}
+        INPUT_SECURITY_HISTORY_SIGNING_KEY: ${{ inputs.security-history-signing-key }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
