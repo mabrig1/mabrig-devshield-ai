@@ -29,5 +29,9 @@
   "regressionExpandedExposure": "warn",
   "regressionInheritedDebt": "ignore",
   "regressionBlastRadiusThreshold": 0,
-  "regressionBlastRadiusAction": "warn"
+  "regressionBlastRadiusAction": "warn",
+  "riskExceptionsMode": "auto",
+  "riskExceptionsFile": ".devshield-exceptions.json",
+  "riskExceptionMaxDays": 90,
+  "riskExceptionAllowCritical": false
 }
