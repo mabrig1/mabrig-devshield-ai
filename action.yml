@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security-first pull request review with diff-aware checks, dependency intelligence, agentic planning, approval-gated remediation proposals, SARIF, and optional AI analysis.'
+description: 'Security-first pull request review with agentic dependency intelligence, diff-aware checks, approval-gated remediation proposals, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -76,6 +76,10 @@ inputs:
     default: ''
   remediation-mode:
     description: 'Remediation proposal mode: off or propose. The Action never applies source mutations.'
+    required: false
+    default: ''
+  dependency-agentic:
+    description: 'Agentic dependency correlation: off, auto, or on. Correlates lockfile evidence, source references, dependency review, and CI/runtime context.'
     required: false
     default: ''
   sarif:
@@ -165,6 +169,24 @@ outputs:
   remediation-plan-markdown:
     description: 'Path to the human-readable remediation proposal.'
     value: ${{ steps.devshield.outputs.remediation-plan-markdown }}
+  dependency-agentic-state:
+    description: 'Dependency mission state: disabled, no-lockfile, invalid-lockfile, no-signals, or investigate.'
+    value: ${{ steps.devshield.outputs.dependency-agentic-state }}
+  dependency-agentic-packages:
+    description: 'Number of dependency packages prioritized for investigation.'
+    value: ${{ steps.devshield.outputs.dependency-agentic-packages }}
+  dependency-agentic-paths:
+    description: 'Number of dependency attack-path hypotheses.'
+    value: ${{ steps.devshield.outputs.dependency-agentic-paths }}
+  dependency-agentic-references:
+    description: 'Number of direct application source references linked to prioritized packages.'
+    value: ${{ steps.devshield.outputs.dependency-agentic-references }}
+  dependency-agentic-plan-file:
+    description: 'Path to the machine-readable dependency mission.'
+    value: ${{ steps.devshield.outputs.dependency-agentic-plan-file }}
+  dependency-agentic-plan-markdown:
+    description: 'Path to the human-readable dependency mission.'
+    value: ${{ steps.devshield.outputs.dependency-agentic-plan-markdown }}
 runs:
   using: 'composite'
   steps:
@@ -190,6 +212,7 @@ runs:
         INPUT_BASELINE_MODE: ${{ inputs.baseline-mode }}
         INPUT_AGENTIC_MODE: ${{ inputs.agentic-mode }}
         INPUT_REMEDIATION_MODE: ${{ inputs.remediation-mode }}
+        INPUT_DEPENDENCY_AGENTIC: ${{ inputs.dependency-agentic }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
