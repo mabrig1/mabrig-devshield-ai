@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security-first pull request review with a traceable repository security graph, agentic dependency intelligence, approval-gated remediation, SARIF, and optional AI analysis.'
+description: 'Security control plane for pull requests with graph diffing, blast-radius analysis, ownership hints, remediation verification, agentic dependency intelligence, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -84,6 +84,14 @@ inputs:
     default: ''
   security-graph:
     description: 'Repository security graph: off, auto, or on. Builds traceable file/package/finding/advisory/workflow relationships.'
+    required: false
+    default: ''
+  control-plane:
+    description: 'Security control plane: off, auto, or on. Adds graph diffing, blast radius, review priority, ownership hints, and remediation verification.'
+    required: false
+    default: ''
+  security-graph-baseline-file:
+    description: 'Repository-relative committed graph baseline used for v2.0 graph diffing.'
     required: false
     default: ''
   sarif:
@@ -212,6 +220,33 @@ outputs:
   security-graph-dot:
     description: 'Path to the Graphviz DOT repository security graph.'
     value: ${{ steps.devshield.outputs.security-graph-dot }}
+  control-plane-state:
+    description: 'Security control plane state: disabled or ready.'
+    value: ${{ steps.devshield.outputs.control-plane-state }}
+  control-plane-graph-changes:
+    description: 'Total added/removed graph nodes and edges compared with the committed graph baseline.'
+    value: ${{ steps.devshield.outputs.control-plane-graph-changes }}
+  control-plane-blast-radius:
+    description: 'Number of graph nodes in the bounded changed-file blast radius.'
+    value: ${{ steps.devshield.outputs.control-plane-blast-radius }}
+  control-plane-ranked-nodes:
+    description: 'Number of nodes with propagated review-priority evidence.'
+    value: ${{ steps.devshield.outputs.control-plane-ranked-nodes }}
+  control-plane-ownership-hints:
+    description: 'Number of impacted files with CODEOWNERS resolution attempts.'
+    value: ${{ steps.devshield.outputs.control-plane-ownership-hints }}
+  control-plane-remediation-checks:
+    description: 'Number of exact remediation candidates checked against the current graph.'
+    value: ${{ steps.devshield.outputs.control-plane-remediation-checks }}
+  control-plane-file:
+    description: 'Path to the machine-readable security control plane report.'
+    value: ${{ steps.devshield.outputs.control-plane-file }}
+  control-plane-markdown:
+    description: 'Path to the human-readable security control plane summary.'
+    value: ${{ steps.devshield.outputs.control-plane-markdown }}
+  security-graph-baseline-candidate:
+    description: 'Path to the current graph snapshot suitable for reviewed baseline adoption.'
+    value: ${{ steps.devshield.outputs.security-graph-baseline-candidate }}
 runs:
   using: 'composite'
   steps:
@@ -239,6 +274,8 @@ runs:
         INPUT_REMEDIATION_MODE: ${{ inputs.remediation-mode }}
         INPUT_DEPENDENCY_AGENTIC: ${{ inputs.dependency-agentic }}
         INPUT_SECURITY_GRAPH: ${{ inputs.security-graph }}
+        INPUT_CONTROL_PLANE: ${{ inputs.control-plane }}
+        INPUT_SECURITY_GRAPH_BASELINE_FILE: ${{ inputs.security-graph-baseline-file }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
