@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 
 function normalizeSeverity(value, fallback = 'critical') {
@@ -280,4 +283,19 @@ export function regressionPolicyMarkdown(result) {
     lines.push('', '**Owner-approval evidence:** ' + result.ownerApproval.reason);
   }
   return lines.join('\n');
+}
+
+
+export function writeRegressionPolicy({ workspace, reportDir = '.devshield', result } = {}) {
+  if (!workspace) throw new Error('workspace is required');
+  const dir = path.join(workspace, reportDir);
+  fs.mkdirSync(dir, { recursive: true });
+  const jsonFile = path.join(dir, 'devshield-regression-policy.json');
+  const markdownFile = path.join(dir, 'devshield-regression-policy.md');
+  fs.writeFileSync(jsonFile, JSON.stringify(result, null, 2) + '\n');
+  fs.writeFileSync(markdownFile, regressionPolicyMarkdown(result) + '\n');
+  return {
+    jsonFile: path.relative(workspace, jsonFile).replace(/\\/g, '/'),
+    markdownFile: path.relative(workspace, markdownFile).replace(/\\/g, '/')
+  };
 }
