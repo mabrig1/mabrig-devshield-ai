@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security-first pull request review with agentic dependency intelligence, diff-aware checks, approval-gated remediation proposals, SARIF, and optional AI analysis.'
+description: 'Security-first pull request review with a traceable repository security graph, agentic dependency intelligence, approval-gated remediation, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -80,6 +80,10 @@ inputs:
     default: ''
   dependency-agentic:
     description: 'Agentic dependency correlation: off, auto, or on. Correlates lockfile evidence, source references, dependency review, and CI/runtime context.'
+    required: false
+    default: ''
+  security-graph:
+    description: 'Repository security graph: off, auto, or on. Builds traceable file/package/finding/advisory/workflow relationships.'
     required: false
     default: ''
   sarif:
@@ -187,6 +191,27 @@ outputs:
   dependency-agentic-plan-markdown:
     description: 'Path to the human-readable dependency mission.'
     value: ${{ steps.devshield.outputs.dependency-agentic-plan-markdown }}
+  security-graph-state:
+    description: 'Repository security graph state: disabled, empty, or ready.'
+    value: ${{ steps.devshield.outputs.security-graph-state }}
+  security-graph-nodes:
+    description: 'Number of nodes in the repository security graph.'
+    value: ${{ steps.devshield.outputs.security-graph-nodes }}
+  security-graph-edges:
+    description: 'Number of traceable edges in the repository security graph.'
+    value: ${{ steps.devshield.outputs.security-graph-edges }}
+  security-graph-paths:
+    description: 'Number of prioritized multi-hop security paths.'
+    value: ${{ steps.devshield.outputs.security-graph-paths }}
+  security-graph-file:
+    description: 'Path to the machine-readable repository security graph JSON.'
+    value: ${{ steps.devshield.outputs.security-graph-file }}
+  security-graph-markdown:
+    description: 'Path to the human-readable repository security graph summary.'
+    value: ${{ steps.devshield.outputs.security-graph-markdown }}
+  security-graph-dot:
+    description: 'Path to the Graphviz DOT repository security graph.'
+    value: ${{ steps.devshield.outputs.security-graph-dot }}
 runs:
   using: 'composite'
   steps:
@@ -213,6 +238,7 @@ runs:
         INPUT_AGENTIC_MODE: ${{ inputs.agentic-mode }}
         INPUT_REMEDIATION_MODE: ${{ inputs.remediation-mode }}
         INPUT_DEPENDENCY_AGENTIC: ${{ inputs.dependency-agentic }}
+        INPUT_SECURITY_GRAPH: ${{ inputs.security-graph }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}
