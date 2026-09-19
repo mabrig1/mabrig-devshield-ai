@@ -4,6 +4,18 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Repository Security Graph with typed package, file, finding, and advisory nodes.
+- Direct evidence edges for package imports, relative module imports, file findings, and package advisories.
+- Contextual workflow-install edges that remain explicitly weaker than direct evidence.
+- Bounded multi-hop path discovery with weakest-edge confidence propagation.
+- Stable graph, node, edge, and path IDs for downstream audit/diffing.
+- JSON, Markdown, and Graphviz DOT graph artifacts plus Action outputs for graph state, nodes, edges, and paths.
+- Graph output stores no source snippets or secret values.
+- Local staged scans disable working-tree graphing in `auto` mode to avoid mixed snapshots.
+
+## [1.8.0] - 2026-09-19
+
+### Added
 - Agentic dependency intelligence mission correlating lockfile evidence, GitHub dependency-review findings, direct source references, lifecycle-script metadata, CI workflows, and deployment context.
 - Evidence confidence labels distinguish evidence-linked, contextual, heuristic, and heuristic-elevated paths.
 - Stable dependency mission reports and Action outputs for state, prioritized packages, candidate paths, and direct references.
