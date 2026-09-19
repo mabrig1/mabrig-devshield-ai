@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 1.6 combines the established deterministic security engine with agentic analysis, managed Cloud integration, and approval-gated remediation:
+Version 1.8 combines the deterministic security engine with agentic analysis, dependency-context correlation, managed Cloud integration, and approval-gated remediation:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -31,6 +31,7 @@ Version 1.6 combines the established deterministic security engine with agentic 
 - **Agentic security loop** that turns findings into prioritized remediation tasks, heuristic attack-path hypotheses, and explicit verification steps without silently mutating code.
 - **Approval-gated remediation proposals** that generate exact allowlisted patch candidates in CI while requiring a matching mission approval before any local source mutation.
 - **Offline npm dependency evidence** for lockfile package identity, declared license, integrity metadata, source transport, stable fingerprints, and policy gating without package installation.
+- **Agentic dependency intelligence** that correlates lockfile evidence with GitHub dependency-review advisories, direct JS/TS imports, lifecycle-script metadata, CI workflows, container/IaC context, and existing security findings—while explicitly refusing to infer exploitability.
 
 ## Quick start
 
@@ -90,6 +91,23 @@ npm run scan -- --inventory --fail-on medium
 The inventory works offline against npm v2/v3 lockfiles, does not install packages or execute lifecycle scripts, and distinguishes recorded metadata from verified security evidence. It does **not** perform vulnerability lookup, registry-signature verification, package download, or artifact-byte integrity validation.
 
 See [Offline dependency evidence](docs/DEPENDENCY-INVENTORY.md) and [AI assistance disclosure](docs/AI-ASSISTANCE.md).
+
+### Agentic dependency intelligence
+
+Normal DevShield scans can now build a separate dependency mission from the local npm lockfile and repository context:
+
+```yaml
+- uses: mabrig1/mabrig-devshield-ai@v1
+  with:
+    github-token: ${{ github.token }}
+    dependency-agentic: auto
+```
+
+The mission links evidence such as a GitHub dependency advisory, direct `import`/`require` references, root dependency declarations, declared install scripts, CI workflow presence, and container/IaC files. It labels paths as `evidence-linked`, `contextual`, `heuristic`, or `heuristic-elevated` instead of presenting them as proven exploit chains.
+
+Reports are written to `.devshield/devshield-dependency-mission.json` and `.devshield/devshield-dependency-mission.md`. In local staged scans, `auto` avoids correlating the mutable working-tree lockfile; use `--dependency-agentic on` only when that behavior is intentional.
+
+See [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md).
 
 ### Approval-gated remediation
 
@@ -164,7 +182,10 @@ Create `.devshield.json` in the repository root:
   "dependencySeverity": "low",
   "dependencyDenyLicenses": [],
   "baselineFile": ".devshield-baseline.json",
-  "baselineMode": "new-only"
+  "baselineMode": "new-only",
+  "agenticMode": "plan",
+  "remediationMode": "propose",
+  "dependencyAgenticMode": "auto"
 }
 ```
 
@@ -310,6 +331,9 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 | `dependency-deny-licenses` | empty | Comma-separated SPDX licenses to reject |
 | `baseline-file` | config or `.devshield-baseline.json` | Fingerprint baseline file |
 | `baseline-mode` | config or `new-only` | `new-only`, `report`, or `off` |
+| `agentic-mode` | config or `plan` | `off`, `plan`, or `ai` |
+| `remediation-mode` | config or `propose` | `off` or proposal-only `propose` |
+| `dependency-agentic` | config or `auto` | `off`, `auto`, or `on`; correlates lockfile/dependency/source/CI context |
 | `sarif` | `true` | Generate SARIF |
 | `report-dir` | `.devshield` | Directory for machine-readable reports |
 | `cloud-api-url` | empty | Optional HTTPS DevShield Cloud ingestion endpoint |
@@ -331,6 +355,17 @@ See [`docs/RULES.md`](docs/RULES.md) for policy guidance.
 - `sarif-file`
 - `baseline-output-file`
 - `cloud-export-status`
+- `agentic-state`
+- `agentic-tasks`
+- `agentic-attack-paths`
+- `agentic-plan-file`
+- `remediation-candidates`
+- `remediation-plan-file`
+- `dependency-agentic-state`
+- `dependency-agentic-packages`
+- `dependency-agentic-paths`
+- `dependency-agentic-references`
+- `dependency-agentic-plan-file`
 
 ## Risk scoring
 
@@ -363,7 +398,7 @@ DevShield Cloud export is a separate opt-in path. Its payload contains structure
 
 DevShield is designed to complement—not impersonate—full SAST, dependency-vulnerability intelligence, secret-validity checking, and human AppSec review. Its advantage is a fast, transparent merge-risk layer that works immediately, produces portable output, and can grow into deeper repository-context analysis without forcing teams to send code to an LLM.
 
-See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
+See [Agentic Security Engine](docs/AGENTIC-ENGINE.md) for the observe → prioritize → attack-path → remediate → verify workflow, [Agentic Dependency Intelligence](docs/DEPENDENCY-AGENT.md) for cross-layer package correlation, and [Approval-Gated Auto-Remediation](docs/AUTO-REMEDIATION.md) for the exact-patch approval model.
 
 See [`docs/COMPETITIVE-ROADMAP.md`](docs/COMPETITIVE-ROADMAP.md) for the next expansion targets.
 
@@ -381,6 +416,7 @@ The smoke suite validates:
 - configuration-file policy
 - JSON/SARIF generation
 - dependency-review findings and license policy
+- offline dependency evidence and agentic dependency correlation
 - baseline new-versus-existing classification
 - staged-index CLI blocking and safe staged changes
 - merge-failure thresholds

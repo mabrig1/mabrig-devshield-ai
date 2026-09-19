@@ -4,6 +4,17 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+- Agentic dependency intelligence mission correlating lockfile evidence, GitHub dependency-review findings, direct source references, lifecycle-script metadata, CI workflows, and deployment context.
+- Evidence confidence labels distinguish evidence-linked, contextual, heuristic, and heuristic-elevated paths.
+- Stable dependency mission reports and Action outputs for state, prioritized packages, candidate paths, and direct references.
+- Root dependency relationship evidence (runtime, development, optional, peer) added to the offline inventory.
+- Local staged scans disable working-tree dependency correlation in `auto` mode to avoid mixing snapshots.
+- Optional AI review receives a compact dependency-mission summary while deterministic gates remain authoritative.
+- Action/runtime version reporting aligned to v1.8.0.
+
+## [1.7.0] - 2026-09-18
+
+### Added
 - Offline npm v2/v3 dependency evidence through `npm run inventory` or `npm run scan -- --inventory`.
 - JSON and Markdown reports with package identities, license uncertainty, integrity metadata, source transport findings, lockfile hashes, and stable finding fingerprints.
 - Explicit coverage limits: no vulnerability lookup, signature verification, package download, or artifact integrity validation.

@@ -16,5 +16,6 @@
   "baselineFile": ".devshield-baseline.json",
   "baselineMode": "new-only",
   "agenticMode": "plan",
-  "remediationMode": "propose"
+  "remediationMode": "propose",
+  "dependencyAgenticMode": "auto"
 }
