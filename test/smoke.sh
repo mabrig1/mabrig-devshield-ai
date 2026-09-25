@@ -13,6 +13,7 @@ node --test "$ACTION_ROOT/test/security-history.test.mjs"
 node --test "$ACTION_ROOT/test/regression-policy.test.mjs"
 node --test "$ACTION_ROOT/test/risk-exceptions.test.mjs"
 node --test "$ACTION_ROOT/test/runtime-guard.test.mjs"
+node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -465,9 +466,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          allow-unsafe-pr-checkout: true
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: false
 YAML
 
 cat > agent-config.json <<'JSON'
@@ -476,6 +481,24 @@ cat > agent-config.json <<'JSON'
   "server_url": "http://mcp.example.invalid",
   "require_approval": "never",
   "allowed_tools": ["*"]
+}
+JSON
+
+mkdir -p .cursor
+cat > .cursor/mcp.json <<'JSON'
+{
+  "mcpServers": {
+    "remote": {
+      "url": "http://agent.example.invalid/mcp"
+    },
+    "local": {
+      "command": "npx",
+      "args": ["-y", "@example/mcp-server"],
+      "env": {
+        "SERVICE_TOKEN": "ABCDEFGHIJKLMNOPQRSTUVWX"
+      }
+    }
+  }
 }
 JSON
 
@@ -502,8 +525,13 @@ const ids = new Set((report.findings || []).map(f => f.rule));
 for (const expected of [
   'unpinned-action-tag',
   'npm-publish-long-lived-token',
+  'npm-publish-provenance-disabled',
   'workflow-untrusted-cache-write',
+  'workflow-unsafe-pr-checkout',
+  'pwn-request-fork-repository',
   'mcp-plain-http',
+  'mcp-unpinned-npx-server',
+  'mcp-hardcoded-env-secret',
   'github-action-node20-runtime',
   'gitlab-token',
   'supabase-pat'
@@ -547,4 +575,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.5 Emerging Threat Shield smoke tests passed."
+echo "DevShield v2.6 Trust-Boundary Hardening smoke tests passed."
