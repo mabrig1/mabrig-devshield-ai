@@ -4,6 +4,21 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.7.0] - 2026-09-25
+
+### Added
+- Structured MCP OAuth endpoint auditing for issuer, authorization, token, registration, and JWKS URLs.
+- Critical detection for hard-coded OAuth client secrets and literal bearer Authorization headers in MCP configuration.
+- Medium compatibility detection for explicitly enabled Dynamic Client Registration, deprecated by MCP 2026-07-28 in favor of Client ID Metadata Documents.
+- Medium compatibility detection for legacy HTTP+SSE MCP transport.
+- Strict-mode detection for wildcard/admin/full-access OAuth scopes.
+
+### Security
+- Remote MCP authorization endpoints using plain HTTP are high-severity findings.
+- Localhost development endpoints remain allowed.
+- OAuth scope checks are strict-only because scope names are provider-specific and broad-looking names can be legitimate in controlled environments.
+- Static checks do not claim RFC 9207 issuer validation is absent at runtime; they surface configuration evidence only.
+
 ## [2.6.0] - 2026-09-25
 
 ### Added
