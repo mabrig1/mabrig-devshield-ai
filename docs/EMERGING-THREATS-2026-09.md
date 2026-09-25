@@ -17,9 +17,11 @@ DevShield response:
 - Promote non-SHA third-party `uses:` references to balanced-policy medium findings.
 - Exclude local `./`, self-repository `$/`, Docker actions, and full commit SHAs.
 - Detect custom JavaScript Actions that still declare `runs.using: node20`, which GitHub retired on September 23, 2026.
+- Detect `pull_request_target` workflows that explicitly override the secure cache default with `cache-mode: write` or `write-only`.
 
 Additional source:
 - https://github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions/
+- https://github.blog/changelog/2026-09-10-control-github-actions-cache-access-with-cache-mode/
 
 ## npm publishing and long-lived credentials
 
