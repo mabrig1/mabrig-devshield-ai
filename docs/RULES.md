@@ -1,6 +1,6 @@
 # DevShield Rule & Policy Guide
 
-MABRIG DevShield AI v2.7 uses a dependency-free deterministic rule engine before any optional AI review.
+MABRIG DevShield AI v2.8 uses a dependency-free deterministic rule engine before any optional AI review.
 
 ## Rule categories
 
@@ -131,3 +131,18 @@ DevShield v2.7 aligns static MCP configuration review with the 2026-07-28 protoc
 - **Broad OAuth scopes:** wildcard/admin/full-access scope names are strict-mode medium findings and should be reviewed for least privilege.
 
 DevShield does not infer whether an OAuth client correctly validates the RFC 9207 `iss` response at runtime from static configuration alone. That runtime property requires protocol-level verification rather than source-pattern matching.
+
+
+## v2.8 Runtime Guard DNS pinning
+
+Runtime Guard now treats DNS resolution as part of the security boundary instead of only pre-validating the URL:
+
+- the hostname is resolved immediately before every normal probe request;
+- any private/non-routable answer blocks the request unless private targets were explicitly enabled;
+- Node's HTTP(S) custom `lookup` is used to force the socket to the validated address;
+- the original hostname is retained for the HTTP Host header and TLS SNI/certificate validation;
+- connection reuse is disabled so a prior socket cannot bypass a later DNS check;
+- the response socket address is compared with the validated address;
+- redirects remain disabled.
+
+Custom injected `fetchFn` integrations are intentionally not labeled DNS-pinned because DevShield cannot control how an arbitrary external fetch implementation resolves names.
