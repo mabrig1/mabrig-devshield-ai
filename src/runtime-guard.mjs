@@ -61,7 +61,7 @@ const outcome = status => BLOCK.has(status) ? 'blocked' : REJECT.has(status) ? '
 const probeUrl = (target, probe) => { const u = new URL(target); u.searchParams.set('__devshield_probe', probe.id); u.searchParams.set('q', probe.value); return u; };
 
 async function hit(url, { fetchFn, timeoutMs, authHeader, vercelBypassToken }) {
-  const headers = { 'user-agent': 'MABRIG-DevShield-Runtime-Guard/2.6', 'x-devshield-runtime-probe': '1' };
+  const headers = { 'user-agent': 'MABRIG-DevShield-Runtime-Guard/2.7', 'x-devshield-runtime-probe': '1' };
   if (authHeader) headers.authorization = authHeader;
   if (vercelBypassToken) headers['x-vercel-protection-bypass'] = vercelBypassToken;
   const r = await fetchFn(url, { method: 'GET', headers, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
@@ -86,7 +86,7 @@ function markdown(r) {
 
 function sarif(r) {
   return { version: '2.1.0', $schema: 'https://json.schemastore.org/sarif-2.1.0.json', runs: [{
-    tool: { driver: { name: 'MABRIG DevShield Runtime Guard', version: '2.6.0' } },
+    tool: { driver: { name: 'MABRIG DevShield Runtime Guard', version: '2.7.0' } },
     results: r.probes.filter(p => ['passed-through', 'error'].includes(p.outcome)).map(p => ({
       ruleId: `runtime-${p.category}`,
       level: p.outcome === 'error' ? 'note' : 'warning',
@@ -121,7 +121,7 @@ export async function runRuntimeGuard(options = {}) {
   const total = probes.length;
   const blockRate = total ? Math.round(blocked / total * 100) : 0;
   const report = {
-    schemaVersion: 1, tool: 'MABRIG DevShield Runtime Guard', version: '2.6.0',
+    schemaVersion: 1, tool: 'MABRIG DevShield Runtime Guard', version: '2.7.0',
     target: sanitizeTarget(validated), state: stateOf(baseline, probes), baseline, probes,
     summary: { total, blocked, passedThrough, rejected, errors, blockRate, minBlockRate: int(minBlockRate, 0, 100, 100) },
     policy: { enforce: Boolean(enforce), allowHttp: Boolean(allowHttp), allowPrivate: Boolean(allowPrivate) }

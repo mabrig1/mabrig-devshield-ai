@@ -1,6 +1,6 @@
 # DevShield Rule & Policy Guide
 
-MABRIG DevShield AI v2.6 uses a dependency-free deterministic rule engine before any optional AI review.
+MABRIG DevShield AI v2.7 uses a dependency-free deterministic rule engine before any optional AI review.
 
 ## Rule categories
 
@@ -117,3 +117,17 @@ DevShield v2.6 adds structured checks around the places where modern developer a
 - **npm provenance downgrade:** an npm publishing workflow that explicitly disables provenance is a medium supply-chain finding.
 
 These checks are evidence about configuration and authority. They do not assert exploitability or compromise.
+
+
+## v2.7 MCP authorization and protocol rules
+
+DevShield v2.7 aligns static MCP configuration review with the 2026-07-28 protocol security direction:
+
+- **OAuth transport:** remote issuer, authorization, token, registration, and JWKS URLs using plain HTTP are high findings.
+- **OAuth client secrets:** literal client secrets committed inside MCP configuration are critical findings.
+- **Authorization headers:** literal bearer credentials committed in MCP server headers are critical findings.
+- **Dynamic Client Registration:** explicitly enabling DCR is a medium compatibility finding because MCP 2026-07-28 formally deprecates DCR in favor of Client ID Metadata Documents (CIMD).
+- **Legacy HTTP+SSE:** explicit SSE transport or an MCP endpoint ending in `/sse` is a medium compatibility finding under the new protocol-era deprecation policy.
+- **Broad OAuth scopes:** wildcard/admin/full-access scope names are strict-mode medium findings and should be reviewed for least privilege.
+
+DevShield does not infer whether an OAuth client correctly validates the RFC 9207 `iss` response at runtime from static configuration alone. That runtime property requires protocol-level verification rather than source-pattern matching.

@@ -66,12 +66,65 @@ function hasImmutablePackageVersion(spec) {
   return at > 0 && !/@(?:latest|next|beta|canary|\*)$/i.test(value);
 }
 
+function isLocalHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return ['localhost', '127.0.0.1', '::1'].includes(h) || h.endsWith('.localhost');
+}
+
 function isRemotePlainHttp(raw) {
   try {
     const u = new URL(String(raw));
-    if (u.protocol !== 'http:') return false;
-    const h = u.hostname.toLowerCase();
-    return !['localhost', '127.0.0.1', '::1'].includes(h) && !h.endsWith('.localhost');
+    return u.protocol === 'http:' && !isLocalHost(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function authConfigs(server) {
+  const values = [server?.oauth, server?.auth, server?.authorization].filter(
+    value => value && typeof value === 'object' && !Array.isArray(value)
+  );
+  if (server && typeof server === 'object') values.push(server);
+  return values;
+}
+
+function literalSecret(value) {
+  if (typeof value !== 'string') return false;
+  const v = value.trim();
+  return v.length >= 12 && !PLACEHOLDER.test(v);
+}
+
+function deprecatedDcrEnabled(auth) {
+  return auth?.dynamic_client_registration === true ||
+    auth?.dynamicClientRegistration === true ||
+    /^(?:dynamic|dcr)$/i.test(String(auth?.registration_method ?? auth?.registrationMethod ?? ''));
+}
+
+function broadScopes(auth) {
+  const raw = auth?.scopes ?? auth?.scope;
+  const scopes = Array.isArray(raw)
+    ? raw.map(String)
+    : typeof raw === 'string'
+      ? raw.split(/[\s,]+/).filter(Boolean)
+      : [];
+  return scopes.filter(scope => /^(?:\*|all|admin|full[_-]?access)$/i.test(scope));
+}
+
+function authUrlEntries(auth) {
+  return [
+    ['issuer', auth?.issuer],
+    ['authorization endpoint', auth?.authorization_endpoint ?? auth?.authorizationEndpoint],
+    ['token endpoint', auth?.token_endpoint ?? auth?.tokenEndpoint],
+    ['registration endpoint', auth?.registration_endpoint ?? auth?.registrationEndpoint],
+    ['JWKS URI', auth?.jwks_uri ?? auth?.jwksUri]
+  ].filter(([, value]) => typeof value === 'string' && value.trim());
+}
+
+function legacySse(server, rawUrl) {
+  if (/^sse$/i.test(String(server?.transport ?? server?.transportType ?? '').trim())) return true;
+  try {
+    const u = new URL(String(rawUrl || ''));
+    return /\/sse\/?$/i.test(u.pathname);
   } catch {
     return false;
   }
@@ -96,6 +149,96 @@ export function auditMcpConfig(rel, content) {
         message: `MCP server "${name}" uses plain HTTP for a remote endpoint.`,
         cwe: 'CWE-319',
         remediation: 'Use HTTPS for remote MCP servers and validate the server before granting tool access.'
+      });
+    }
+
+    if (legacySse(server, rawUrl)) {
+      findings.push({
+        id: 'mcp-legacy-sse-transport',
+        severity: 'medium',
+        category: 'compatibility',
+        line: lineOf(content, String(server.transport ?? rawUrl ?? 'sse')),
+        lineText: String(server.transport ?? rawUrl ?? 'sse'),
+        message: `MCP server "${name}" uses the deprecated legacy HTTP+SSE transport.`,
+        cwe: 'CWE-1104',
+        remediation: 'Migrate to the current MCP HTTP transport supported by the 2026-07-28 specification and current SDKs.'
+      });
+    }
+
+    for (const auth of authConfigs(server)) {
+      for (const [label, value] of authUrlEntries(auth)) {
+        if (!isRemotePlainHttp(value)) continue;
+        findings.push({
+          id: 'mcp-oauth-plain-http',
+          severity: 'high',
+          category: 'ai-security',
+          line: lineOf(content, value),
+          lineText: value,
+          message: `MCP server "${name}" configures its OAuth ${label} over plain HTTP.`,
+          cwe: 'CWE-319',
+          remediation: 'Use HTTPS for MCP authorization metadata and OAuth endpoints; only localhost development endpoints should use plain HTTP.'
+        });
+      }
+
+      const clientSecret = auth.client_secret ?? auth.clientSecret;
+      if (literalSecret(clientSecret)) {
+        findings.push({
+          id: 'mcp-oauth-client-secret',
+          severity: 'critical',
+          category: 'secrets',
+          line: lineOf(content, 'client_secret'),
+          lineText: 'client_secret',
+          message: `MCP server "${name}" embeds an OAuth client secret in repository configuration.`,
+          cwe: 'CWE-798',
+          remediation: 'Remove and rotate the client secret, then inject it from a protected secret store. Prefer public-client/CIMD patterns when applicable.'
+        });
+      }
+
+      if (deprecatedDcrEnabled(auth)) {
+        findings.push({
+          id: 'mcp-dcr-deprecated',
+          severity: 'medium',
+          category: 'compatibility',
+          line: lineOf(content, 'dynamic'),
+          lineText: 'dynamic client registration',
+          message: `MCP server "${name}" explicitly enables Dynamic Client Registration, which is deprecated in MCP 2026-07-28.`,
+          cwe: 'CWE-1104',
+          remediation: 'Plan migration from Dynamic Client Registration to Client ID Metadata Documents (CIMD) while maintaining required compatibility.'
+        });
+      }
+
+      const broad = broadScopes(auth);
+      if (broad.length) {
+        findings.push({
+          id: 'mcp-oauth-broad-scope',
+          severity: 'medium',
+          category: 'ai-security',
+          line: lineOf(content, broad[0]),
+          lineText: broad[0],
+          message: `MCP server "${name}" requests an unusually broad OAuth scope: ${broad.join(', ')}.`,
+          cwe: 'CWE-250',
+          remediation: 'Use the narrowest OAuth scopes required for the agent workflow and step up authorization only when additional scope is needed.',
+          strictOnly: true
+        });
+      }
+    }
+
+    const headerBag = server.headers && typeof server.headers === 'object' && !Array.isArray(server.headers)
+      ? server.headers
+      : {};
+    const authorizationHeader = headerBag.Authorization ?? headerBag.authorization;
+    if (typeof authorizationHeader === 'string' &&
+        /^Bearer\s+\S{12,}$/i.test(authorizationHeader.trim()) &&
+        !PLACEHOLDER.test(authorizationHeader.replace(/^Bearer\s+/i, '').trim())) {
+      findings.push({
+        id: 'mcp-hardcoded-auth-header',
+        severity: 'critical',
+        category: 'secrets',
+        line: lineOf(content, 'Authorization'),
+        lineText: 'Authorization',
+        message: `MCP server "${name}" embeds a literal bearer credential in its Authorization header.`,
+        cwe: 'CWE-798',
+        remediation: 'Remove and rotate the bearer credential, then inject it from a protected environment or secret manager.'
       });
     }
 

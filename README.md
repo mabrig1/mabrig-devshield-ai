@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.6 adds trust-boundary hardening for structured MCP configs, unsafe privileged PR checkouts, and npm provenance downgrades on top of the v2.5 Emerging Threat Shield, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
+Version 2.7 adds MCP authorization and protocol hardening for OAuth transport, embedded credentials, deprecated registration/transport patterns, and overbroad scopes on top of v2.6 trust-boundary scanning, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -40,6 +40,7 @@ Version 2.6 adds trust-boundary hardening for structured MCP configs, unsafe pri
 - **Runtime Guard** for opt-in preview/staging checks using controlled, non-destructive attack-shaped markers, HTTPS/private-network guardrails, JSON/SARIF evidence, optional enforcement, and Vercel Deployment Protection bypass support.
 - **Emerging Threat Shield (v2.5)** for full-SHA GitHub Action checks, npm trusted-publishing migration signals, GitLab/Supabase secret detection, and MCP transport/approval/tool-scope guardrails.
 - **Trust-Boundary Hardening (v2.6)** for structured MCP config auditing, hard-coded MCP env secrets, unpinned `npx` MCP servers, unsafe privileged PR checkout opt-outs, fork-repository checkout, and npm provenance downgrade signals.
+- **MCP Authorization & Protocol Guard (v2.7)** for insecure OAuth endpoints, embedded OAuth/bearer credentials, deprecated DCR/SSE configurations, and strict-mode overbroad OAuth scopes.
 
 ## Quick start
 
@@ -690,6 +691,7 @@ The smoke suite validates:
 - policy-aware regression report/enforce behavior, severity thresholds, blast-radius actions, and owner-approval verification
 - time-bound exception validation, automatic expiry, fingerprint/path scoping, critical-risk guardrails, and lifecycle history
 - v2.5 checks for immutable Action refs, npm publishing credentials, MCP trust boundaries, and modern provider tokens
+- v2.6/v2.7 structured MCP, OAuth, protocol-deprecation, and privileged-workflow trust-boundary checks
 - baseline new-versus-existing classification
 - staged-index CLI blocking and safe staged changes
 - merge-failure thresholds
