@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.7 adds MCP authorization and protocol hardening for OAuth transport, embedded credentials, deprecated registration/transport patterns, and overbroad scopes on top of v2.6 trust-boundary scanning, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
+Version 2.8 hardens Runtime Guard against DNS-rebinding/TOCTOU behavior by pinning each probe connection to a freshly validated public IP while preserving the original TLS hostname, on top of the v2.7 MCP authorization guard:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -41,6 +41,7 @@ Version 2.7 adds MCP authorization and protocol hardening for OAuth transport, e
 - **Emerging Threat Shield (v2.5)** for full-SHA GitHub Action checks, npm trusted-publishing migration signals, GitLab/Supabase secret detection, and MCP transport/approval/tool-scope guardrails.
 - **Trust-Boundary Hardening (v2.6)** for structured MCP config auditing, hard-coded MCP env secrets, unpinned `npx` MCP servers, unsafe privileged PR checkout opt-outs, fork-repository checkout, and npm provenance downgrade signals.
 - **MCP Authorization & Protocol Guard (v2.7)** for insecure OAuth endpoints, embedded OAuth/bearer credentials, deprecated DCR/SSE configurations, and strict-mode overbroad OAuth scopes.
+- **Runtime DNS Pinning (v2.8)** resolves and validates the target immediately before each runtime request, forces the socket to that approved IP, disables connection reuse, preserves TLS/SNI hostname validation, and rejects public-to-private DNS rebinding.
 
 ## Quick start
 
@@ -84,7 +85,7 @@ Runtime Guard is disabled by default. Enable it only for an explicitly configure
     runtime-enforce: false
 ```
 
-Runtime Guard currently measures runtime/WAF protection signals; a passed-through marker is **not** proof that the application is exploitable. See [Runtime Guard v2.4](docs/runtime-guard.md) for safety defaults, protected-preview configuration, outputs, and enforcement guidance.
+Runtime Guard currently measures runtime/WAF protection signals; a passed-through marker is **not** proof that the application is exploitable. See [Runtime Guard v2.8](docs/runtime-guard.md) for safety defaults, protected-preview configuration, outputs, and enforcement guidance.
 
 ## Local CLI and pre-commit protection
 
@@ -692,6 +693,7 @@ The smoke suite validates:
 - time-bound exception validation, automatic expiry, fingerprint/path scoping, critical-risk guardrails, and lifecycle history
 - v2.5 checks for immutable Action refs, npm publishing credentials, MCP trust boundaries, and modern provider tokens
 - v2.6/v2.7 structured MCP, OAuth, protocol-deprecation, and privileged-workflow trust-boundary checks
+- v2.8 Runtime Guard DNS pinning and DNS-rebinding regression coverage
 - baseline new-versus-existing classification
 - staged-index CLI blocking and safe staged changes
 - merge-failure thresholds
