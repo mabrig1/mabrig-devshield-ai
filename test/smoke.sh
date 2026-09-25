@@ -489,7 +489,19 @@ cat > .cursor/mcp.json <<'JSON'
 {
   "mcpServers": {
     "remote": {
-      "url": "http://agent.example.invalid/mcp"
+      "url": "http://agent.example.invalid/sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      "oauth": {
+        "issuer": "http://auth.example.invalid",
+        "authorization_endpoint": "http://auth.example.invalid/authorize",
+        "token_endpoint": "http://auth.example.invalid/token",
+        "client_secret": "super-secret-client-value",
+        "dynamic_client_registration": true,
+        "scopes": ["*"]
+      }
     },
     "local": {
       "command": "npx",
@@ -532,6 +544,11 @@ for (const expected of [
   'mcp-plain-http',
   'mcp-unpinned-npx-server',
   'mcp-hardcoded-env-secret',
+  'mcp-legacy-sse-transport',
+  'mcp-oauth-plain-http',
+  'mcp-oauth-client-secret',
+  'mcp-dcr-deprecated',
+  'mcp-hardcoded-auth-header',
   'github-action-node20-runtime',
   'gitlab-token',
   'supabase-pat'
@@ -575,4 +592,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.6 Trust-Boundary Hardening smoke tests passed."
+echo "DevShield v2.7 MCP Authorization & Protocol Guard smoke tests passed."
