@@ -4,6 +4,22 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.8.0] - 2026-09-25
+
+### Added
+- DNS-pinned Runtime Guard transport for normal Action/CLI runtime probes.
+- Per-request DNS resolution and private/non-routable address validation immediately before connection.
+- Custom Node HTTP(S) lookup that forces the socket to the validated IP while preserving the original hostname for HTTP Host/TLS SNI.
+- Fresh connections with agent reuse disabled for runtime probes.
+- Socket remote-address verification against the validated DNS result.
+- Regression tests for public-to-private DNS rebinding and validated-address pinning.
+
+### Security
+- Closes the validation-to-request DNS re-resolution gap that could otherwise permit DNS-rebinding/TOCTOU behavior.
+- Redirects remain disabled.
+- Private targets still require explicit opt-in.
+- Custom injected fetch functions remain available for tests/integrators and are clearly reported as not DNS-pinned.
+
 ## [2.7.0] - 2026-09-25
 
 ### Added
