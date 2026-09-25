@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.4 adds an opt-in Runtime Guard for preview/staging WAF coverage checks on top of the v2.3 time-bound risk acceptance system, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
+Version 2.5 adds an Emerging Threat Shield for current AI/MCP trust-boundary risks, mutable GitHub Actions, modern provider tokens, and long-lived npm publishing credentials on top of the v2.4 Runtime Guard, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -38,6 +38,7 @@ Version 2.4 adds an opt-in Runtime Guard for preview/staging WAF coverage checks
 - **Policy-Aware Regression Gates** with report-only defaults, opt-in enforcement, severity thresholds for new risk, warn/block controls for expanded exposure, inherited-debt visibility, and optional blast-radius owner approval using verifiable individual CODEOWNERS reviews.
 - **Time-Bound Risk Acceptance** with owner/rationale/review/expiry metadata, fingerprint or graph-path scoping, automatic expiry, critical-regression refusal by default, and lifecycle history for introduced, renewed, lapsed, and scope-changed exceptions.
 - **Runtime Guard** for opt-in preview/staging checks using controlled, non-destructive attack-shaped markers, HTTPS/private-network guardrails, JSON/SARIF evidence, optional enforcement, and Vercel Deployment Protection bypass support.
+- **Emerging Threat Shield (v2.5)** for full-SHA GitHub Action checks, npm trusted-publishing migration signals, GitLab/Supabase secret detection, and MCP transport/approval/tool-scope guardrails.
 
 ## Quick start
 
@@ -99,6 +100,8 @@ npm run scan -- --repository --fail-on high
 ```
 
 See [Local DevShield CLI](docs/LOCAL-CLI.md) and [examples/pre-commit.sh](examples/pre-commit.sh).
+
+For the current developer-security research basis behind v2.5, see [Emerging Threat Research — September 2026](docs/EMERGING-THREATS-2026-09.md).
 
 ### Offline dependency evidence
 
@@ -685,6 +688,7 @@ The smoke suite validates:
 - security history chain integrity, optional HMAC verification, and exposure-regression classification
 - policy-aware regression report/enforce behavior, severity thresholds, blast-radius actions, and owner-approval verification
 - time-bound exception validation, automatic expiry, fingerprint/path scoping, critical-risk guardrails, and lifecycle history
+- v2.5 checks for immutable Action refs, npm publishing credentials, MCP trust boundaries, and modern provider tokens
 - baseline new-versus-existing classification
 - staged-index CLI blocking and safe staged changes
 - merge-failure thresholds
