@@ -16,6 +16,10 @@ Sources:
 DevShield response:
 - Promote non-SHA third-party `uses:` references to balanced-policy medium findings.
 - Exclude local `./`, self-repository `$/`, Docker actions, and full commit SHAs.
+- Detect custom JavaScript Actions that still declare `runs.using: node20`, which GitHub retired on September 23, 2026.
+
+Additional source:
+- https://github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions/
 
 ## npm publishing and long-lived credentials
 
