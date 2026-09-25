@@ -12,6 +12,7 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 - High-severity detection for remote MCP servers configured over plain HTTP.
 - Strict-mode MCP guardrails for globally disabled tool approval and wildcard tool allowlists.
 - Contextual detection for npm publish workflows that depend on a long-lived repository secret via `NODE_AUTH_TOKEN`.
+- High-severity detection for custom GitHub JavaScript Actions that still declare the retired Node 20 runtime.
 - Regression coverage for the new 2026 threat rules.
 
 ### Changed
