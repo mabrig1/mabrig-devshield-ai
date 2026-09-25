@@ -1,6 +1,6 @@
 # DevShield Rule & Policy Guide
 
-MABRIG DevShield AI v2.5 uses a dependency-free deterministic rule engine before any optional AI review.
+MABRIG DevShield AI v2.6 uses a dependency-free deterministic rule engine before any optional AI review.
 
 ## Rule categories
 
@@ -103,3 +103,17 @@ DevShield v2.5 adds deterministic coverage for current developer and agent-secur
 - **Modern provider secrets:** GitLab token families and Supabase personal access tokens are detected and redacted.
 
 The AI/MCP checks are intentionally configuration-focused. Static source scanning cannot prove that a prompt-injection attack will succeed, so DevShield reports unsafe trust-boundary configurations rather than claiming exploitability.
+
+
+## v2.6 trust-boundary rules
+
+DevShield v2.6 adds structured checks around the places where modern developer and AI tooling crosses trust boundaries:
+
+- **Structured MCP config audit:** common MCP JSON configs are parsed so `url`, `command`, `args`, and `env` can be evaluated together.
+- **MCP embedded credentials:** secret-looking literal values in MCP server environment blocks are critical findings.
+- **MCP package execution:** `npx`-launched MCP servers without an exact package version or immutable source revision are medium supply-chain findings.
+- **Unsafe PR checkout opt-out:** `allow-unsafe-pr-checkout: true` is a high CI-security finding.
+- **Contributor fork checkout:** `pull_request_target` plus `github.event.pull_request.head.repo.full_name` is critical because the privileged workflow is pointed directly at contributor-controlled repository content.
+- **npm provenance downgrade:** an npm publishing workflow that explicitly disables provenance is a medium supply-chain finding.
+
+These checks are evidence about configuration and authority. They do not assert exploitability or compromise.
