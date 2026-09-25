@@ -95,6 +95,7 @@ A new deterministic rule should:
 DevShield v2.5 adds deterministic coverage for current developer and agent-security risks:
 
 - **Full-SHA Action pinning:** non-SHA third-party `uses:` references are now balanced-policy medium findings. Local `./`, same-repository `$/`, Docker actions, and full commit SHAs are excluded.
+- **Retired Node 20 Action runtime:** custom `action.yml`/`action.yaml` metadata using `runs.using: node20` is a high finding; hosted runners now require Node 24 for JavaScript Actions.
 - **npm publishing credentials:** a workflow combining `npm publish` with a repository-secret `NODE_AUTH_TOKEN` is reported as a migration risk toward trusted publishing (OIDC) or staged publishing.
 - **Remote MCP transport:** plain-HTTP MCP server URLs are high severity.
 - **MCP approvals/tool scope:** globally disabled approval and wildcard tool-surface patterns are strict-mode findings. They are not treated as proof of exploitation.
