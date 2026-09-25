@@ -13,7 +13,7 @@ import { appendSecurityHistory, loadSecurityHistory, securityHistoryMarkdown, wr
 import { evaluateOwnerApprovals, evaluateRegressionPolicy, regressionPolicyMarkdown, writeRegressionPolicy } from './regression-policy.mjs';
 import { applyRiskExceptions, classifyRiskExceptionLifecycle, createRiskExceptionSnapshot, loadRiskExceptions, riskExceptionsMarkdown, writeRiskExceptions } from './risk-exceptions.mjs';
 
-const VERSION = '2.7.0';
+const VERSION = '2.8.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
