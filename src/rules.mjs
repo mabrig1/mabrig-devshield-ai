@@ -68,7 +68,7 @@ export const rules = [
 
   // AI / agentic trust boundaries
   rule('mcp-plain-http', 'high', 'ai-security', /["']?(?:server_url|serverUrl|mcp_url|mcpUrl)["']?\s*[:=]\s*["']http:\/\//i, 'Remote MCP server is configured over plain HTTP.', 'CWE-319', 'Use HTTPS for remote MCP servers, or a secure tunnel for private servers, and validate the server before granting tool access.'),
-  rule('mcp-approval-disabled', 'medium', 'ai-security', /["']?(?:require_approval|requireApproval)["']?\s*[:=]\s*(?:["']never["']|false)\b/i, 'MCP/tool approval appears disabled for the configured tool surface.', 'CWE-862', 'Require approval for sensitive tools or narrowly scope only trusted read-only tools that may skip approval.', { strictOnly: true }),
+  rule('mcp-approval-disabled', 'medium', 'ai-security', /["']?(?:require_approval|requireApproval)["']?\s*[:=]\s*(?:["']never["']|false)(?=\s*[,}\]]|\s*$)/i, 'MCP/tool approval appears disabled for the configured tool surface.', 'CWE-862', 'Require approval for sensitive tools or narrowly scope only trusted read-only tools that may skip approval.', { strictOnly: true }),
   rule('mcp-wildcard-tools', 'medium', 'ai-security', /["']?(?:allowed_tools|allowedTools)["']?\s*[:=]\s*(?:\[\s*["']\*["']\s*\]|["']\*["'])/i, 'Agent or MCP configuration allows a wildcard tool surface.', 'CWE-250', 'Allowlist only the tools the workflow needs and keep write-capable tools approval-gated.', { strictOnly: true }),
 
   // IaC / container hardening
