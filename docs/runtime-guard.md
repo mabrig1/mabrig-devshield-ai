@@ -1,4 +1,4 @@
-# Runtime Guard v2.4
+# Runtime Guard v2.8
 
 Runtime Guard adds an opt-in runtime-defense probe to MABRIG DevShield AI.
 
@@ -11,6 +11,10 @@ It sends a very small set of controlled, non-destructive attack-shaped markers t
 - Embedded URL credentials are rejected.
 - Query strings, fragments and credentials are removed from the target written to reports.
 - Redirects are not automatically followed.
+- DNS is resolved and validated immediately before each normal runtime request.
+- The request socket is pinned to the validated address with a custom Node HTTP(S) lookup while retaining the original hostname for Host/TLS SNI validation.
+- HTTP connection reuse is disabled for probes, so every request gets a fresh DNS validation + pinned connection.
+- The connected socket address is checked against the validated address before the response is accepted.
 - Active probes are limited to XSS-shaped, SQLi-shaped and traversal-shaped markers.
 - No command execution, destructive request, credential attack or high-volume traffic is generated.
 - Private targets require `runtime-allow-private: true` and should only be used on a trusted self-hosted runner.
@@ -51,5 +55,7 @@ Runtime Guard writes:
 - `.devshield/runtime-guard.sarif`
 - the GitHub job summary
 - composite Action outputs for state, probe counts, block rate, and report paths
+
+Runtime Guard v2.8 closes the DNS validation/request gap for the default Action/CLI transport. Custom injected fetch functions are still supported for testing and advanced integrations, but are reported as custom-fetch mode rather than DNS-pinned.
 
 The next planned layer is an ephemeral Coraza + OWASP CRS policy-simulation adapter, followed by provider-backed temporary edge protection.

@@ -592,4 +592,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.7 MCP Authorization & Protocol Guard smoke tests passed."
+echo "DevShield v2.8 Runtime DNS Pinning smoke tests passed."

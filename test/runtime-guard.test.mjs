@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { isPrivateIp, runRuntimeGuard, sanitizeTarget, validateRuntimeTarget } from '../src/runtime-guard.mjs';
+import { isPrivateIp, resolveRuntimeAddress, runRuntimeGuard, sanitizeTarget, validateRuntimeTarget } from '../src/runtime-guard.mjs';
 
 function response(status, headers = {}) {
   return {
@@ -86,4 +86,74 @@ test('auth-gated preview is inconclusive and does not fire probes', async () => 
   assert.equal(calls, 1);
   assert.equal(result.report.state, 'inconclusive-auth-gated');
   assert.equal(result.report.summary.total, 0);
+});
+
+
+test('resolveRuntimeAddress returns a validated public address', async () => {
+  const resolved = await resolveRuntimeAddress('https://example.com/preview', { lookupFn: publicLookup });
+  assert.deepEqual(resolved, { address: '203.0.113.10', family: 4 });
+});
+
+test('Runtime Guard rejects DNS rebinding to a private address before connecting', async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'devshield-runtime-'));
+  let lookupCalls = 0;
+  let requestCalls = 0;
+  const lookupFn = async () => {
+    lookupCalls++;
+    return lookupCalls === 1
+      ? [{ address: '203.0.113.10', family: 4 }]
+      : [{ address: '127.0.0.1', family: 4 }];
+  };
+
+  const result = await runRuntimeGuard({
+    target: 'https://example.com/preview',
+    lookupFn,
+    requestFn: async () => {
+      requestCalls++;
+      return { status: 200 };
+    },
+    workspace,
+    enforce: true
+  });
+
+  assert.equal(requestCalls, 0);
+  assert.equal(result.report.state, 'inconclusive-errors');
+  assert.match(result.report.baseline.error, /private or non-routable/);
+  assert.equal(result.report.policy.dnsPinning, true);
+  assert.equal(result.shouldFail, true);
+});
+
+test('Runtime Guard passes the validated address to the pinned request transport', async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'devshield-runtime-'));
+  const resolvedAddresses = [];
+  let calls = 0;
+  const result = await runRuntimeGuard({
+    target: 'https://example.com/preview',
+    lookupFn: publicLookup,
+    requestFn: async (_url, { resolved }) => {
+      resolvedAddresses.push(resolved.address);
+      return { status: calls++ === 0 ? 200 : 403 };
+    },
+    workspace
+  });
+
+  assert.deepEqual(resolvedAddresses, [
+    '203.0.113.10',
+    '203.0.113.10',
+    '203.0.113.10',
+    '203.0.113.10'
+  ]);
+  assert.equal(result.report.state, 'protected-signals');
+  assert.equal(result.report.policy.dnsPinning, true);
+});
+
+test('custom fetch mode remains injectable and is marked as not DNS-pinned', async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'devshield-runtime-'));
+  const result = await runRuntimeGuard({
+    target: 'https://example.com/preview',
+    fetchFn: async () => response(401),
+    lookupFn: publicLookup,
+    workspace
+  });
+  assert.equal(result.report.policy.dnsPinning, false);
 });
