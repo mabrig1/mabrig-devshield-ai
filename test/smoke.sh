@@ -456,7 +456,8 @@ mkdir -p .github/workflows
 cat > .github/workflows/emerging.yml <<'YAML'
 name: emerging
 on:
-  workflow_dispatch:
+  pull_request_target:
+cache-mode: write
 permissions:
   contents: read
 jobs:
@@ -501,6 +502,7 @@ const ids = new Set((report.findings || []).map(f => f.rule));
 for (const expected of [
   'unpinned-action-tag',
   'npm-publish-long-lived-token',
+  'workflow-untrusted-cache-write',
   'mcp-plain-http',
   'github-action-node20-runtime',
   'gitlab-token',
