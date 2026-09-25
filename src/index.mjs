@@ -528,6 +528,23 @@ function scanFile(rel, addedLines = null) {
       }
     }
 
+    // GitHub gives low-trust events read-only cache access by default. Explicit write access can
+    // re-open cache-poisoning paths, so flag the override in pull_request_target workflows.
+    const cacheWriteIndex = lines.findIndex(l => /^\s*cache-mode\s*:\s*(?:write|write-only)\s*$/i.test(l));
+    if (/\bpull_request_target\s*:/.test(content) && cacheWriteIndex >= 0 &&
+        (!addedLines || addedLines.has(cacheWriteIndex + 1) || [...addedLines].some(n => /pull_request_target\s*:/.test(lines[n - 1] || '')))) {
+      const special = rule(
+        'workflow-untrusted-cache-write',
+        'high',
+        'ci-security',
+        /./,
+        'pull_request_target workflow explicitly grants write access to the Actions cache.',
+        'CWE-345',
+        'Keep cache-mode read/none for low-trust events; save caches from a trusted workflow such as push when needed.'
+      );
+      if (policyAllows(special)) findings.push(makeFinding(special, rel, cacheWriteIndex + 1, lines[cacheWriteIndex]));
+    }
+
     // npm is moving automated publishing toward OIDC/trusted publishing and staged approval.
     // Surface long-lived publish credentials as migration risk without claiming compromise.
     const npmPublishIndex = lines.findIndex(l => /\bnpm\s+publish\b/i.test(l));
