@@ -12,7 +12,7 @@ import { appendSecurityHistory, loadSecurityHistory, securityHistoryMarkdown, wr
 import { evaluateOwnerApprovals, evaluateRegressionPolicy, regressionPolicyMarkdown, writeRegressionPolicy } from './regression-policy.mjs';
 import { applyRiskExceptions, classifyRiskExceptionLifecycle, createRiskExceptionSnapshot, loadRiskExceptions, riskExceptionsMarkdown, writeRiskExceptions } from './risk-exceptions.mjs';
 
-const VERSION = '2.4.0';
+const VERSION = '2.5.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -526,6 +526,43 @@ function scanFile(rel, addedLines = null) {
         const lineNo = Math.max(1, lines.findIndex(l => /pull_request_target\s*:/.test(l)) + 1);
         findings.push(makeFinding(special, rel, lineNo, lines[lineNo - 1] || 'pull_request_target'));
       }
+    }
+
+    // GitHub gives low-trust events read-only cache access by default. Explicit write access can
+    // re-open cache-poisoning paths, so flag the override in pull_request_target workflows.
+    const cacheWriteIndex = lines.findIndex(l => /^\s*cache-mode\s*:\s*(?:write|write-only)\s*$/i.test(l));
+    if (/\bpull_request_target\s*:/.test(content) && cacheWriteIndex >= 0 &&
+        (!addedLines || addedLines.has(cacheWriteIndex + 1) || [...addedLines].some(n => /pull_request_target\s*:/.test(lines[n - 1] || '')))) {
+      const special = rule(
+        'workflow-untrusted-cache-write',
+        'high',
+        'ci-security',
+        /./,
+        'pull_request_target workflow explicitly grants write access to the Actions cache.',
+        'CWE-345',
+        'Keep cache-mode read/none for low-trust events; save caches from a trusted workflow such as push when needed.'
+      );
+      if (policyAllows(special)) findings.push(makeFinding(special, rel, cacheWriteIndex + 1, lines[cacheWriteIndex]));
+    }
+
+    // npm is moving automated publishing toward OIDC/trusted publishing and staged approval.
+    // Surface long-lived publish credentials as migration risk without claiming compromise.
+    const npmPublishIndex = lines.findIndex(l => /\bnpm\s+publish\b/i.test(l));
+    const npmTokenIndex = lines.findIndex(l => /\bNODE_AUTH_TOKEN\s*:\s*\$\{\{\s*secrets\.[A-Za-z0-9_]+\s*\}\}/i.test(l));
+    const npmRelevantLineChanged = !addedLines ||
+      (npmPublishIndex >= 0 && addedLines.has(npmPublishIndex + 1)) ||
+      (npmTokenIndex >= 0 && addedLines.has(npmTokenIndex + 1));
+    if (npmPublishIndex >= 0 && npmTokenIndex >= 0 && npmRelevantLineChanged) {
+      const special = rule(
+        'npm-publish-long-lived-token',
+        'medium',
+        'supply-chain',
+        /./,
+        'npm publish workflow uses a long-lived repository secret as NODE_AUTH_TOKEN.',
+        'CWE-798',
+        'Prefer npm trusted publishing with GitHub OIDC or staged publishing with human approval; otherwise narrowly scope and rotate the token.'
+      );
+      if (policyAllows(special)) findings.push(makeFinding(special, rel, npmTokenIndex + 1, lines[npmTokenIndex]));
     }
   }
 

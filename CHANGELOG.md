@@ -4,6 +4,28 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.5.0] - 2026-09-25
+
+### Added
+- Emerging Threat Shield coverage for current AI/MCP, GitHub Actions, npm publishing, and credential-exposure risks.
+- Critical detection/redaction for GitLab token families and Supabase personal access tokens.
+- High-severity detection for remote MCP servers configured over plain HTTP.
+- Strict-mode MCP guardrails for globally disabled tool approval and wildcard tool allowlists.
+- Contextual detection for npm publish workflows that depend on a long-lived repository secret via `NODE_AUTH_TOKEN`.
+- High-severity detection for custom GitHub JavaScript Actions that still declare the retired Node 20 runtime.
+- High-severity contextual detection when `pull_request_target` explicitly grants write/write-only Actions cache access.
+- Regression coverage for the new 2026 threat rules.
+
+### Changed
+- Non-SHA third-party GitHub Action and reusable-workflow references are now medium findings in the balanced policy.
+- Same-repository `$/` Action references are excluded from mutable-reference detection.
+- Runtime Guard package/user-agent metadata aligned to v2.5.
+
+### Safety
+- MCP no-approval and wildcard-tool checks remain strict-only to avoid treating intentionally trusted/read-only configurations as proven vulnerabilities.
+- Long-lived npm publishing credentials are reported as migration risk, not evidence of compromise.
+- Static AI/MCP checks do not claim to prove prompt-injection exploitability.
+
 ## [2.4.0] - 2026-09-19
 
 ### Added
