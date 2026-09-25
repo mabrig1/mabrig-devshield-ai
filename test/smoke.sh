@@ -478,6 +478,14 @@ cat > agent-config.json <<'JSON'
 }
 JSON
 
+cat > action.yml <<'YAML'
+name: old-runtime
+description: synthetic retired runtime fixture
+runs:
+  using: node20
+  main: index.js
+YAML
+
 GITLAB_TOKEN="$(printf '%s%s' 'glpat-' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')"
 SUPABASE_TOKEN="$(printf '%s%s' 'sbp_fc' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')"
 printf 'export const gitlabToken = "%s";\nexport const supabaseToken = "%s";\n' "$GITLAB_TOKEN" "$SUPABASE_TOKEN" > provider-tokens.js
@@ -494,6 +502,7 @@ for (const expected of [
   'unpinned-action-tag',
   'npm-publish-long-lived-token',
   'mcp-plain-http',
+  'github-action-node20-runtime',
   'gitlab-token',
   'supabase-pat'
 ]) {
