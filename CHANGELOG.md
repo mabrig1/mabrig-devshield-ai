@@ -4,6 +4,22 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.6.0] - 2026-09-25
+
+### Added
+- Structured MCP configuration auditing for common `mcpServers` files and client configs.
+- Critical detection for secret-looking literals embedded in MCP server environment blocks.
+- Medium supply-chain detection for MCP servers launched through unpinned `npx` package references.
+- High-severity detection for GitHub Actions `allow-unsafe-pr-checkout: true`.
+- Critical contextual detection when `pull_request_target` checks out a contributor-controlled fork repository.
+- Medium signal when npm publishing explicitly disables package provenance.
+- Dedicated MCP config regression tests plus integration coverage in the full smoke suite.
+
+### Security
+- Remote MCP HTTP detection now understands structured `url` fields, not only named `server_url` patterns.
+- The new MCP checks inspect configuration only; DevShield does not connect to MCP servers or execute their commands.
+- npm provenance and unpinned MCP package findings are supply-chain hardening signals, not claims that compromise occurred.
+
 ## [2.5.0] - 2026-09-25
 
 ### Added
