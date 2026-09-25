@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { REDACTORS, rules } from './rules.mjs';
+import { auditMcpConfig } from './mcp-config-audit.mjs';
 import { agenticMarkdown, createAgenticPlan, writeAgenticPlan } from './agentic-engine.mjs';
 import { createRemediationPlan, remediationMarkdown, writeRemediationPlan } from './remediation-engine.mjs';
 import { createDependencyMission, dependencyMissionMarkdown, loadWorkspaceDependencyEvidence, writeDependencyMission } from './dependency-agent.mjs';
@@ -12,7 +13,7 @@ import { appendSecurityHistory, loadSecurityHistory, securityHistoryMarkdown, wr
 import { evaluateOwnerApprovals, evaluateRegressionPolicy, regressionPolicyMarkdown, writeRegressionPolicy } from './regression-policy.mjs';
 import { applyRiskExceptions, classifyRiskExceptionLifecycle, createRiskExceptionSnapshot, loadRiskExceptions, riskExceptionsMarkdown, writeRiskExceptions } from './risk-exceptions.mjs';
 
-const VERSION = '2.5.0';
+const VERSION = '2.6.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -516,6 +517,24 @@ function scanFile(rel, addedLines = null) {
     }
   }
 
+  // Structured MCP configuration checks complement line-based rules with actual server boundaries.
+  for (const issue of auditMcpConfig(rel, content)) {
+    if (!shouldScanLine(issue.line)) continue;
+    const special = rule(
+      issue.id,
+      issue.severity,
+      issue.category,
+      /./,
+      issue.message,
+      issue.cwe,
+      issue.remediation,
+      issue.strictOnly ? { strictOnly: true } : {}
+    );
+    if (!policyAllows(special)) continue;
+    const sourceLine = lines[Math.max(0, issue.line - 1)] || issue.lineText || issue.id;
+    findings.push(makeFinding(special, rel, issue.line, sourceLine));
+  }
+
   // Contextual workflow check: pull_request_target + checkout of PR head is especially dangerous.
   if (/\.github\/workflows\/.*\.ya?ml$/i.test(rel) && (!addedLines || [...addedLines].some(n => n >= 1))) {
     if (/\bpull_request_target\s*:/.test(content) &&
@@ -526,6 +545,21 @@ function scanFile(rel, addedLines = null) {
         const lineNo = Math.max(1, lines.findIndex(l => /pull_request_target\s*:/.test(l)) + 1);
         findings.push(makeFinding(special, rel, lineNo, lines[lineNo - 1] || 'pull_request_target'));
       }
+    }
+
+    const forkRepositoryIndex = lines.findIndex(l => /repository\s*:\s*\$\{\{\s*github\.event\.pull_request\.head\.repo\.full_name\s*\}\}/i.test(l));
+    if (/\bpull_request_target\s*:/.test(content) && forkRepositoryIndex >= 0 &&
+        (!addedLines || addedLines.has(forkRepositoryIndex + 1) || [...addedLines].some(n => /pull_request_target\s*:/.test(lines[n - 1] || '')))) {
+      const special = rule(
+        'pwn-request-fork-repository',
+        'critical',
+        'ci-security',
+        /./,
+        'pull_request_target workflow checks out the contributor-controlled fork repository with elevated workflow trust.',
+        'CWE-829',
+        'Use pull_request for untrusted code, or keep pull_request_target on trusted base-repository code only and never execute contributor-controlled checkout content.'
+      );
+      if (policyAllows(special)) findings.push(makeFinding(special, rel, forkRepositoryIndex + 1, lines[forkRepositoryIndex]));
     }
 
     // GitHub gives low-trust events read-only cache access by default. Explicit write access can
@@ -563,6 +597,26 @@ function scanFile(rel, addedLines = null) {
         'Prefer npm trusted publishing with GitHub OIDC or staged publishing with human approval; otherwise narrowly scope and rotate the token.'
       );
       if (policyAllows(special)) findings.push(makeFinding(special, rel, npmTokenIndex + 1, lines[npmTokenIndex]));
+    }
+
+    const provenanceDisabledIndex = lines.findIndex(l =>
+      /\bNPM_CONFIG_PROVENANCE\s*:\s*["']?false["']?\s*$/i.test(l) ||
+      /\bnpm\s+publish\b[^\n]*--provenance(?:=|\s+)["']?false["']?/i.test(l)
+    );
+    const provenanceRelevantLineChanged = !addedLines ||
+      (npmPublishIndex >= 0 && addedLines.has(npmPublishIndex + 1)) ||
+      (provenanceDisabledIndex >= 0 && addedLines.has(provenanceDisabledIndex + 1));
+    if (npmPublishIndex >= 0 && provenanceDisabledIndex >= 0 && provenanceRelevantLineChanged) {
+      const special = rule(
+        'npm-publish-provenance-disabled',
+        'medium',
+        'supply-chain',
+        /./,
+        'npm publishing workflow explicitly disables package provenance.',
+        'CWE-345',
+        'Keep npm provenance enabled so consumers can verify how and where the package was built.'
+      );
+      if (policyAllows(special)) findings.push(makeFinding(special, rel, provenanceDisabledIndex + 1, lines[provenanceDisabledIndex]));
     }
   }
 

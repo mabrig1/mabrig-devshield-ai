@@ -12,7 +12,7 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.5 adds an Emerging Threat Shield for current AI/MCP trust-boundary risks, mutable GitHub Actions, modern provider tokens, and long-lived npm publishing credentials on top of the v2.4 Runtime Guard, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
+Version 2.6 adds trust-boundary hardening for structured MCP configs, unsafe privileged PR checkouts, and npm provenance downgrades on top of the v2.5 Emerging Threat Shield, while keeping deterministic findings, SARIF, annotations, graph evidence, and the original `fail-on` gate fully visible and unchanged:
 
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -39,6 +39,7 @@ Version 2.5 adds an Emerging Threat Shield for current AI/MCP trust-boundary ris
 - **Time-Bound Risk Acceptance** with owner/rationale/review/expiry metadata, fingerprint or graph-path scoping, automatic expiry, critical-regression refusal by default, and lifecycle history for introduced, renewed, lapsed, and scope-changed exceptions.
 - **Runtime Guard** for opt-in preview/staging checks using controlled, non-destructive attack-shaped markers, HTTPS/private-network guardrails, JSON/SARIF evidence, optional enforcement, and Vercel Deployment Protection bypass support.
 - **Emerging Threat Shield (v2.5)** for full-SHA GitHub Action checks, npm trusted-publishing migration signals, GitLab/Supabase secret detection, and MCP transport/approval/tool-scope guardrails.
+- **Trust-Boundary Hardening (v2.6)** for structured MCP config auditing, hard-coded MCP env secrets, unpinned `npx` MCP servers, unsafe privileged PR checkout opt-outs, fork-repository checkout, and npm provenance downgrade signals.
 
 ## Quick start
 
