@@ -7,6 +7,8 @@ function rule(id, severity, category, re, message, cwe, remediation, extra = {})
 
 export const REDACTORS = [
   [/\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, '[REDACTED_GITHUB_TOKEN]'],
+  [/\b(?:glpat|gldt|glrt|glrtr|glcbt|gloas|glptt|glft|glimt|glagent|glwt|glsoat|glffct)-[A-Za-z0-9_-]{12,}\b/g, '[REDACTED_GITLAB_TOKEN]'],
+  [/\bsbp_[A-Za-z0-9_-]{16,}\b/g, '[REDACTED_SUPABASE_TOKEN]'],
   [/\bsk-(?:proj-|or-v1-)?[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_AI_KEY]'],
   [/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, '[REDACTED_AWS_KEY]'],
   [/\b(?:sk_live|rk_live)_[A-Za-z0-9]{16,}\b/g, '[REDACTED_STRIPE_KEY]'],
@@ -23,6 +25,8 @@ export const rules = [
   // Secrets
   rule('private-key', 'critical', 'secrets', /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/, 'Private key material appears to be committed.', 'CWE-321', 'Remove the key, rotate it, and store credentials in a secret manager.'),
   rule('github-token', 'critical', 'secrets', /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/, 'Possible GitHub token detected.', 'CWE-798', 'Revoke/rotate the token and move it to GitHub Actions secrets.'),
+  rule('gitlab-token', 'critical', 'secrets', /\b(?:glpat|gldt|glrt|glrtr|glcbt|gloas|glptt|glft|glimt|glagent|glwt|glsoat|glffct)-[A-Za-z0-9_-]{12,}\b/, 'Possible GitLab access, runner, deploy, job, or service token detected.', 'CWE-798', 'Revoke/rotate the token and replace it with a narrowly scoped, short-lived credential where possible.'),
+  rule('supabase-pat', 'critical', 'secrets', /\bsbp_[A-Za-z0-9_-]{16,}\b/, 'Possible Supabase personal access token detected.', 'CWE-798', 'Revoke/rotate the token and prefer a scoped token limited to only the required project permissions.'),
   rule('openai-key', 'critical', 'secrets', /\bsk-(?:proj-|or-v1-)?[A-Za-z0-9_-]{20,}\b/, 'Possible AI provider API key detected.', 'CWE-798', 'Rotate the key and load it from a protected secret store.'),
   rule('aws-access-key', 'critical', 'secrets', /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/, 'Possible AWS access key detected.', 'CWE-798', 'Deactivate the key and use short-lived credentials or workload identity.'),
   rule('stripe-live-key', 'critical', 'secrets', /\b(?:sk_live|rk_live)_[A-Za-z0-9]{16,}\b/, 'Possible Stripe live secret detected.', 'CWE-798', 'Rotate the key immediately and store it outside source control.'),
@@ -55,11 +59,16 @@ export const rules = [
 
   // Supply chain / GitHub Actions
   rule('unpinned-action-moving', 'medium', 'supply-chain', /uses:\s*[^\s]+@(?:main|master|latest)\b/i, 'GitHub Action is pinned to a moving branch/tag.', 'CWE-829', 'Pin to a trusted full commit SHA or an immutable release reference.', { file: /\.ya?ml$/i }),
-  rule('unpinned-action-tag', 'low', 'supply-chain', /uses:\s*(?!\.\/)(?!docker:\/\/)[^\s]+@(?![a-f0-9]{40,64}\b)[^\s#]+/i, 'GitHub Action reference is mutable.', 'CWE-829', 'For maximum supply-chain integrity, pin third-party actions to a full commit SHA.', { file: /\.github\/workflows\/.*\.ya?ml$/i, strictOnly: true }),
+  rule('unpinned-action-tag', 'medium', 'supply-chain', /uses:\s*(?!\.\/)(?!\$\/)(?!docker:\/\/)[^\s]+@(?![a-f0-9]{40,64}\b)[^\s#]+/i, 'GitHub Action or reusable workflow reference is mutable.', 'CWE-829', 'Pin third-party Actions and reusable workflows to a reviewed full-length commit SHA.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
   rule('workflow-write-all', 'high', 'ci-security', /^\s*permissions\s*:\s*write-all\s*$/i, 'Workflow grants write-all token permissions.', 'CWE-250', 'Grant only the minimum required GITHUB_TOKEN permissions.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
   rule('workflow-pr-target', 'high', 'ci-security', /^\s*pull_request_target\s*:/i, 'pull_request_target runs with base-repository privileges and needs careful hardening.', 'CWE-829', 'Avoid executing untrusted PR code in pull_request_target workflows.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
   rule('workflow-expression-in-run', 'critical', 'ci-security', /run\s*:[^\n]*\$\{\{\s*github\.event\.(?:pull_request\.(?:title|body|head\.ref)|issue\.title|comment\.body)/i, 'Potential script injection: untrusted event text is interpolated directly into a run command.', 'CWE-78', 'Assign the expression to an environment variable and quote/use it as data.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
   rule('curl-pipe-shell', 'high', 'supply-chain', /\bcurl\b[^|]{0,200}\|\s*(?:sudo\s+)?(?:sh|bash)\b|\bwget\b[^|]{0,200}\|\s*(?:sudo\s+)?(?:sh|bash)\b/i, 'Remote content is piped directly to a shell.', 'CWE-494', 'Download, verify checksum/signature, then execute a pinned artifact.'),
+
+  // AI / agentic trust boundaries
+  rule('mcp-plain-http', 'high', 'ai-security', /["']?(?:server_url|serverUrl|mcp_url|mcpUrl)["']?\s*[:=]\s*["']http:\/\//i, 'Remote MCP server is configured over plain HTTP.', 'CWE-319', 'Use HTTPS for remote MCP servers, or a secure tunnel for private servers, and validate the server before granting tool access.'),
+  rule('mcp-approval-disabled', 'medium', 'ai-security', /["']?(?:require_approval|requireApproval)["']?\s*[:=]\s*(?:["']never["']|false)\b/i, 'MCP/tool approval appears disabled for the configured tool surface.', 'CWE-862', 'Require approval for sensitive tools or narrowly scope only trusted read-only tools that may skip approval.', { strictOnly: true }),
+  rule('mcp-wildcard-tools', 'medium', 'ai-security', /["']?(?:allowed_tools|allowedTools)["']?\s*[:=]\s*(?:\[\s*["']\*["']\s*\]|["']\*["'])/i, 'Agent or MCP configuration allows a wildcard tool surface.', 'CWE-250', 'Allowlist only the tools the workflow needs and keep write-capable tools approval-gated.', { strictOnly: true }),
 
   // IaC / container hardening
   rule('world-open-ingress', 'high', 'iac', /\b0\.0\.0\.0\/0\b|\b::\/0\b/, 'Network rule appears open to the entire internet.', 'CWE-284', 'Restrict ingress/egress to required CIDRs and ports.', { file: /\.(?:tf|ya?ml|json)$/i }),
