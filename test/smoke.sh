@@ -441,7 +441,86 @@ if [[ $CLOUD_REQUIRED_STATUS -eq 0 ]]; then
   exit 1
 fi
 
-# 9) Fail threshold still blocks.
+# 9) Emerging 2026 threat coverage: immutable Actions, MCP trust boundaries, and modern tokens.
+REPO9="$TMP/emerging"
+mkdir -p "$REPO9"
+cd "$REPO9"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = true;\n' > base.js
+git add base.js
+git commit -qm "baseline"
+
+mkdir -p .github/workflows
+cat > .github/workflows/emerging.yml <<'YAML'
+name: emerging
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+YAML
+
+cat > agent-config.json <<'JSON'
+{
+  "type": "mcp",
+  "server_url": "http://mcp.example.invalid",
+  "require_approval": "never",
+  "allowed_tools": ["*"]
+}
+JSON
+
+GITLAB_TOKEN="$(printf '%s%s' 'glpat-' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')"
+SUPABASE_TOKEN="$(printf '%s%s' 'sbp_fc' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890')"
+printf 'export const gitlabToken = "%s";\nexport const supabaseToken = "%s";\n' "$GITLAB_TOKEN" "$SUPABASE_TOKEN" > provider-tokens.js
+
+git add .
+git commit -qm "emerging threat fixtures"
+run_scan "$REPO9"
+REPORT9="$(assert_output "$REPO9/out.txt" report-file)"
+node - "$REPO9/$REPORT9" <<'NODE'
+const fs = require('fs');
+const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const ids = new Set((report.findings || []).map(f => f.rule));
+for (const expected of [
+  'unpinned-action-tag',
+  'npm-publish-long-lived-token',
+  'mcp-plain-http',
+  'gitlab-token',
+  'supabase-pat'
+]) {
+  if (!ids.has(expected)) throw new Error(`Missing emerging-threat finding: ${expected}`);
+}
+NODE
+
+# Strict policy additionally surfaces broad MCP authority patterns.
+: > "$REPO9/out-strict.txt"
+GITHUB_WORKSPACE="$REPO9" \
+GITHUB_OUTPUT="$REPO9/out-strict.txt" \
+INPUT_FAIL_ON=none \
+INPUT_COMMENT=false \
+INPUT_SCAN_SCOPE=repository \
+INPUT_POLICY=strict \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null
+STRICT_REPORT="$(assert_output "$REPO9/out-strict.txt" report-file)"
+node - "$REPO9/$STRICT_REPORT" <<'NODE'
+const fs = require('fs');
+const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const ids = new Set((report.findings || []).map(f => f.rule));
+for (const expected of ['mcp-approval-disabled', 'mcp-wildcard-tools']) {
+  if (!ids.has(expected)) throw new Error(`Missing strict MCP finding: ${expected}`);
+}
+NODE
+
+# 10) Fail threshold still blocks.
 cd "$REPO1"
 : > "$REPO1/out.txt"
 set +e
@@ -457,4 +536,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.4 Runtime Guard smoke tests passed."
+echo "DevShield v2.5 Emerging Threat Shield smoke tests passed."
