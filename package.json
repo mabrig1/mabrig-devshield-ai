@@ -7,7 +7,8 @@
     "devshield": "bin/devshield.mjs",
     "devshield-remediate": "bin/remediate.mjs",
     "devshield-inventory": "bin/inventory.mjs",
-    "devshield-runtime": "bin/runtime-guard.mjs"
+    "devshield-runtime": "bin/runtime-guard.mjs",
+    "devshield-legal": "bin/legal-scan.mjs"
   },
   "scripts": {
     "test": "bash test/smoke.sh",
@@ -15,7 +16,8 @@
     "remediate": "node bin/remediate.mjs",
     "inventory": "node bin/inventory.mjs",
     "runtime": "node bin/runtime-guard.mjs",
-    "control-boundary": "node examples/human-control-boundary.mjs"
+    "control-boundary": "node examples/human-control-boundary.mjs",
+    "legal": "node bin/legal-scan.mjs"
   },
   "engines": {
     "node": ">=20"
