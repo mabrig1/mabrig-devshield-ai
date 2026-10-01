@@ -34,6 +34,7 @@ Version 2.8 hardens Runtime Guard against DNS-rebinding/TOCTOU behavior by pinni
 - **Agentic dependency intelligence** that correlates lockfile evidence with GitHub dependency-review advisories, direct JS/TS imports, lifecycle-script metadata, CI workflows, container/IaC context, and existing security findings—while explicitly refusing to infer exploitability.
 - **Repository Security Graph** with typed file/package/finding/advisory/workflow nodes, traceable import/finding/advisory edges, contextual install edges, stable graph IDs, bounded multi-hop path discovery, and JSON/Markdown/Graphviz DOT exports.
 - **Security Control Plane** with graph snapshot diffing, bounded changed-file blast radius, evidence-weighted review-priority propagation, best-effort CODEOWNERS ownership hints, and post-remediation observation checks.
+- **Human Control Boundary Engine (experimental)** turns observable action evidence into transparent `delegate`, `review`, `require-approval`, or `block` recommendations, while separately flagging conditions where human approval may become oversight theatre.
 - **Security Graph History & Regression Detection** with SHA-256 hash chaining, optional HMAC-SHA256 signing, bounded risk-exposure snapshots, and explicit `regression`, `improvement`, `unchanged`, or first-snapshot `unclassified` states.
 - **Policy-Aware Regression Gates** with report-only defaults, opt-in enforcement, severity thresholds for new risk, warn/block controls for expanded exposure, inherited-debt visibility, and optional blast-radius owner approval using verifiable individual CODEOWNERS reviews.
 - **Time-Bound Risk Acceptance** with owner/rationale/review/expiry metadata, fingerprint or graph-path scoping, automatic expiry, critical-regression refusal by default, and lifecycle history for introduced, renewed, lapsed, and scope-changed exceptions.
@@ -71,6 +72,18 @@ jobs:
 ```
 
 The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.
+
+## Human Control Boundary research
+
+DevShield now includes an experimental, dependency-free control-allocation module for agentic software workflows. It does **not** claim to measure exploit probability or prove that human review is effective. Instead it exposes the evidence behind a control recommendation and records paired autonomous-versus-human-controlled outcomes for reproducible research.
+
+Run the demonstration:
+
+```bash
+npm run control-boundary
+```
+
+See [Human Control Boundary Engine](docs/HUMAN-CONTROL-BOUNDARY.md) for the evidence model, guardrails, oversight-theatre signal, and experimental comparison semantics.
 
 ## Runtime Guard
 
