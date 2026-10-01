@@ -14,7 +14,8 @@
     "scan": "node bin/devshield.mjs",
     "remediate": "node bin/remediate.mjs",
     "inventory": "node bin/inventory.mjs",
-    "runtime": "node bin/runtime-guard.mjs"
+    "runtime": "node bin/runtime-guard.mjs",
+    "control-boundary": "node examples/human-control-boundary.mjs"
   },
   "engines": {
     "node": ">=20"
