@@ -603,4 +603,44 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
+# 11) Explicit legal/compliance enforcement participates in the normal fail-on gate.
+REPO11="$TMP/legal-enforce"
+mkdir -p "$REPO11"
+cd "$REPO11"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf '{"name":"legal-enforce-fixture","private":true}\n' > package.json
+printf '# Safe fixture\n' > README.md
+printf 'export const version = 1;\n' > app.js
+git add package.json README.md app.js
+git commit -qm "baseline"
+printf 'export const version = 2;\n' > app.js
+git add app.js
+git commit -qm "safe code change"
+
+: > "$REPO11/out.txt"
+set +e
+GITHUB_WORKSPACE="$REPO11" \
+GITHUB_OUTPUT="$REPO11/out.txt" \
+INPUT_FAIL_ON=high \
+INPUT_COMMENT=false \
+INPUT_LEGAL_COMPLIANCE=enforce \
+INPUT_DEPENDENCY_REVIEW=false \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null 2>&1
+LEGAL_STATUS=$?
+set -e
+if [[ $LEGAL_STATUS -eq 0 ]]; then
+  echo "Expected legal-compliance=enforce with missing LICENSE to fail at high severity" >&2
+  exit 1
+fi
+if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-state)" != "enforce" ]]; then
+  echo "Expected legal-compliance-state=enforce" >&2
+  exit 1
+fi
+if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-high)" -lt 1 ]]; then
+  echo "Expected at least one high legal/compliance finding" >&2
+  exit 1
+fi
+
 echo "DevShield v2.9 Unified Assurance smoke tests passed."
