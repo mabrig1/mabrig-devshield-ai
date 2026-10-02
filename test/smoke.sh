@@ -83,6 +83,9 @@ COUNT="$(assert_output "$REPO1/out.txt" findings-count)"
 LEVEL="$(assert_output "$REPO1/out.txt" risk-level)"
 REPORT="$(assert_output "$REPO1/out.txt" report-file)"
 SARIF="$(assert_output "$REPO1/out.txt" sarif-file)"
+LEGAL_STATE="$(assert_output "$REPO1/out.txt" legal-compliance-state)"
+LEGAL_COUNT="$(assert_output "$REPO1/out.txt" legal-compliance-findings)"
+LEGAL_REPORT="$(assert_output "$REPO1/out.txt" legal-compliance-file)"
 
 if [[ -z "$COUNT" || "$COUNT" -lt 7 ]]; then
   echo "Expected at least 7 findings, got ${COUNT:-missing}" >&2
@@ -94,6 +97,12 @@ if [[ "$LEVEL" != "critical" ]]; then
   exit 1
 fi
 node -e "JSON.parse(require('fs').readFileSync('$REPO1/$REPORT','utf8')); JSON.parse(require('fs').readFileSync('$REPO1/$SARIF','utf8'))"
+if [[ "$LEGAL_STATE" != "advisory" || -z "$LEGAL_COUNT" || "$LEGAL_COUNT" -lt 1 ]]; then
+  echo "Expected advisory Legal & Compliance Shield findings, got state=$LEGAL_STATE count=${LEGAL_COUNT:-missing}" >&2
+  exit 1
+fi
+test -s "$REPO1/$LEGAL_REPORT"
+node -e "const r=JSON.parse(require('fs').readFileSync('$REPO1/$LEGAL_REPORT','utf8')); if(r.mode!=='advisory') throw new Error('legal mode mismatch')"
 
 # 2) Diff-aware default must not re-report legacy findings on untouched lines.
 REPO2="$TMP/diffaware"
