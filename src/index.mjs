@@ -12,8 +12,9 @@ import { createSecurityControlPlane, loadCodeowners, loadSecurityGraphBaseline, 
 import { appendSecurityHistory, loadSecurityHistory, securityHistoryMarkdown, writeSecurityHistory } from './security-history.mjs';
 import { evaluateOwnerApprovals, evaluateRegressionPolicy, regressionPolicyMarkdown, writeRegressionPolicy } from './regression-policy.mjs';
 import { applyRiskExceptions, classifyRiskExceptionLifecycle, createRiskExceptionSnapshot, loadRiskExceptions, riskExceptionsMarkdown, writeRiskExceptions } from './risk-exceptions.mjs';
+import { scanLegalCompliance } from './legal-compliance.mjs';
 
-const VERSION = '2.8.0';
+const VERSION = '2.9.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -126,7 +127,8 @@ function sanitizeConfig(raw) {
     riskExceptionsMode: typeof cfg.riskExceptionsMode === 'string' ? cfg.riskExceptionsMode : undefined,
     riskExceptionsFile: typeof cfg.riskExceptionsFile === 'string' ? cfg.riskExceptionsFile : undefined,
     riskExceptionMaxDays: Number.isFinite(Number(cfg.riskExceptionMaxDays)) ? Number(cfg.riskExceptionMaxDays) : undefined,
-    riskExceptionAllowCritical: typeof cfg.riskExceptionAllowCritical === 'boolean' ? cfg.riskExceptionAllowCritical : undefined
+    riskExceptionAllowCritical: typeof cfg.riskExceptionAllowCritical === 'boolean' ? cfg.riskExceptionAllowCritical : undefined,
+    legalComplianceMode: typeof cfg.legalComplianceMode === 'string' ? cfg.legalComplianceMode : undefined
   };
 }
 
@@ -185,6 +187,7 @@ const riskExceptionsMode = normalizeRiskExceptionsMode(nonEmptyInput('INPUT_RISK
 const riskExceptionsFile = safeRiskExceptionsFile(nonEmptyInput('INPUT_RISK_EXCEPTIONS_FILE', config.riskExceptionsFile || '.devshield-exceptions.json'));
 const riskExceptionMaxDays = clampInt(nonEmptyInput('INPUT_RISK_EXCEPTION_MAX_DAYS', String(config.riskExceptionMaxDays ?? 90)), 1, 365, 90);
 const riskExceptionAllowCritical = parseBool(nonEmptyInput('INPUT_RISK_EXCEPTION_ALLOW_CRITICAL', String(config.riskExceptionAllowCritical ?? false)), false);
+const legalComplianceMode = normalizeLegalComplianceMode(nonEmptyInput('INPUT_LEGAL_COMPLIANCE', config.legalComplianceMode || 'advisory'));
 const excludePaths = [
   ...config.excludePaths,
   ...input('INPUT_EXCLUDE_PATHS', '').split(',').map(s => s.trim()).filter(Boolean)
@@ -275,6 +278,11 @@ function safeSecurityHistoryFile(value) {
 function normalizeRiskExceptionsMode(value) {
   const v = String(value || '').toLowerCase();
   return ['off', 'auto', 'on'].includes(v) ? v : 'auto';
+}
+
+function normalizeLegalComplianceMode(value) {
+  const v = String(value || '').toLowerCase();
+  return ['off', 'advisory', 'enforce'].includes(v) ? v : 'advisory';
 }
 
 function safeRiskExceptionsFile(value) {
@@ -854,7 +862,64 @@ function categoryCounts(findings) {
   return counts;
 }
 
-function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan, remediationPlan, dependencyMission, securityGraph, controlPlane, securityHistoryResult, loadedSecurityHistory, regressionPolicyResult, riskExceptionsResult, riskExceptionApplication, riskExceptionLifecycle) {
+function legalComplianceFinding(raw) {
+  const anchorFile = fs.existsSync(path.join(workspace, 'README.md'))
+    ? 'README.md'
+    : (fs.existsSync(path.join(workspace, 'package.json')) ? 'package.json' : '.');
+  const rule = String(raw?.id || 'LEGAL000');
+  const severity = severityRank[raw?.severity] ? raw.severity : 'medium';
+  const message = [raw?.title, raw?.evidence].filter(Boolean).join(' — ') || 'Legal/compliance review signal.';
+  const fingerprint = crypto.createHash('sha256')
+    .update([rule, severity, raw?.category || 'legal-compliance', raw?.title || '', raw?.evidence || ''].join('\0'))
+    .digest('hex')
+    .slice(0, 32);
+  return {
+    rule,
+    severity,
+    category: raw?.category || 'legal-compliance',
+    file: anchorFile,
+    line: 1,
+    message,
+    remediation: raw?.remediation || 'Review with qualified legal/compliance counsel where appropriate.',
+    confidence: 'advisory',
+    cwe: '',
+    fingerprint,
+    advisory: true
+  };
+}
+
+function legalComplianceMarkdown(result) {
+  if (!result || result.state === 'disabled') {
+    return '### Legal & Compliance Shield\n\nState: disabled.';
+  }
+  const rows = (result.findings || []).slice(0, 20).map(f =>
+    `| ${String(f.severity || 'medium').toUpperCase()} | \`${f.id}\` | ${String(f.title || '').replace(/\|/g, '\\|')} | ${String(f.remediation || '').replace(/\|/g, '\\|')} |`
+  ).join('\n');
+  return `### Legal & Compliance Shield
+
+Mode: **${result.mode}** · Findings: **${result.summary?.total || 0}** · High: **${result.summary?.high || 0}**
+
+${result.disclaimer || 'Automated risk spotting only; not legal advice or a determination of compliance.'}
+
+${rows ? `| Severity | Signal | Review item | Suggested action |
+|---|---|---|---|
+${rows}` : '✅ No repository-facing legal/compliance signals were detected.'}`;
+}
+
+function writeLegalComplianceReports(result) {
+  const absDir = path.join(workspace, reportDir);
+  fs.mkdirSync(absDir, { recursive: true });
+  const jsonFile = path.join(absDir, 'devshield-legal-compliance.json');
+  const markdownFile = path.join(absDir, 'devshield-legal-compliance.md');
+  fs.writeFileSync(jsonFile, `${JSON.stringify(result, null, 2)}\n`);
+  fs.writeFileSync(markdownFile, `${legalComplianceMarkdown(result)}\n`);
+  return {
+    jsonFile: path.relative(workspace, jsonFile).replace(/\\/g, '/'),
+    markdownFile: path.relative(workspace, markdownFile).replace(/\\/g, '/')
+  };
+}
+
+function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan, remediationPlan, dependencyMission, securityGraph, controlPlane, securityHistoryResult, loadedSecurityHistory, regressionPolicyResult, riskExceptionsResult, riskExceptionApplication, riskExceptionLifecycle, legalCompliance) {
   const counts = severityCounts(gateFindings);
   const categories = Object.entries(categoryCounts(gateFindings)).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const newCount = findings.filter(f => f.status === 'new').length;
@@ -876,6 +941,7 @@ function buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baselin
   const securityHistorySection = securityHistoryResult ? securityHistoryMarkdown(securityHistoryResult, loadedSecurityHistory) : '### Security graph history\n\nHistory: disabled.';
   const regressionPolicySection = regressionPolicyMarkdown(regressionPolicyResult);
   const riskExceptionsSection = riskExceptionsMarkdown(riskExceptionsResult, riskExceptionApplication, riskExceptionLifecycle);
+  const legalComplianceSection = legalComplianceMarkdown(legalCompliance);
 
   return `${COMMENT_MARKER}
 ## 🛡️ MABRIG DevShield AI
@@ -905,6 +971,8 @@ ${controlPlaneSection}
 ${securityHistorySection}
 
 ${riskExceptionsSection}
+
+${legalComplianceSection}
 
 ${regressionPolicySection}
 
@@ -992,7 +1060,7 @@ function makeSarif(findings) {
   };
 }
 
-function writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview) {
+function writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview, legalCompliance) {
   const absDir = path.join(workspace, reportDir);
   fs.mkdirSync(absDir, { recursive: true });
   const reportFile = path.join(absDir, 'devshield-report.json');
@@ -1033,7 +1101,8 @@ function writeReports(files, findings, gateFindings, risk, ignored, baseline, de
       riskExceptionsMode,
       riskExceptionsFile,
       riskExceptionMaxDays,
-      riskExceptionAllowCritical
+      riskExceptionAllowCritical,
+      legalComplianceMode
     },
     baseline: {
       status: baseline.status,
@@ -1044,6 +1113,13 @@ function writeReports(files, findings, gateFindings, risk, ignored, baseline, de
       dependenciesReviewed: dependencyReview.dependenciesReviewed,
       findings: dependencyFindings.length
     },
+    legalCompliance: {
+      state: legalCompliance.state,
+      mode: legalCompliance.mode,
+      disclaimer: legalCompliance.disclaimer,
+      summary: legalCompliance.summary,
+      findings: legalCompliance.findings
+    },
     summary: {
       filesScanned: files.length,
       findings: findings.length,
@@ -1051,6 +1127,8 @@ function writeReports(files, findings, gateFindings, risk, ignored, baseline, de
       existingFindings: existingFindings.length,
       gatedFindings: gateFindings.length,
       dependencyFindings: dependencyFindings.length,
+      legalComplianceFindings: legalCompliance.summary?.total || 0,
+      legalComplianceHigh: legalCompliance.summary?.high || 0,
       ignoredFindings: ignored,
       riskScore: risk.score,
       riskLevel: risk.level,
@@ -1410,6 +1488,25 @@ for (const file of files) {
 
 const dependencyReview = await dependencyReviewFindings();
 findings.push(...dependencyReview.findings);
+
+const legalCompliance = legalComplianceMode === 'off'
+  ? {
+      schemaVersion: '1.0',
+      scanner: 'DevShield Legal & Compliance Shield',
+      disclaimer: 'Automated risk spotting only; not legal advice or a determination of compliance.',
+      state: 'disabled',
+      mode: 'off',
+      findings: [],
+      summary: { total: 0, high: 0, medium: 0, low: 0 }
+    }
+  : {
+      ...scanLegalCompliance(workspace),
+      state: legalComplianceMode,
+      mode: legalComplianceMode
+    };
+const legalComplianceFindings = (legalCompliance.findings || []).map(legalComplianceFinding);
+if (legalComplianceMode === 'enforce') findings.push(...legalComplianceFindings);
+
 findings = dedupeFindings(findings);
 
 const baseline = loadBaselineFingerprints();
@@ -1549,11 +1646,12 @@ const regressionPolicyResult = evaluateRegressionPolicy({
   ownerApproval: ownerApprovalEvidence
 });
 const regressionPolicyReports = writeRegressionPolicy({ workspace, reportDir, result: regressionPolicyResult });
+const legalComplianceReports = writeLegalComplianceReports(legalCompliance);
 emitAnnotations(gateFindings);
-const reports = writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview);
+const reports = writeReports(files, findings, gateFindings, risk, ignored, baseline, dependencyReview, legalCompliance);
 const cloudExportStatus = await exportToCloud(files, findings, gateFindings, risk, ignored, baseline, dependencyReview, controlPlane, securityHistoryResult, loadedSecurityHistory, regressionPolicyResult, riskExceptionsResult, riskExceptionApplication, riskExceptionLifecycle);
 const ai = await aiReview(filteredDiff(files), gateFindings, agenticMode === 'ai' ? agenticPlan : null, agenticMode === 'ai' ? dependencyMission : null, agenticMode === 'ai' ? securityGraph : null, agenticMode === 'ai' ? controlPlane : null, agenticMode === 'ai' ? securityHistoryResult : null, agenticMode === 'ai' ? regressionPolicyResult : null, agenticMode === 'ai' ? riskExceptionApplication : null);
-const markdown = buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan, remediationPlan, dependencyMission, securityGraph, controlPlane, securityHistoryResult, loadedSecurityHistory, regressionPolicyResult, riskExceptionsResult, riskExceptionApplication, riskExceptionLifecycle);
+const markdown = buildMarkdown(files, findings, gateFindings, risk, ai, ignored, baseline, dependencyReview, agenticPlan, remediationPlan, dependencyMission, securityGraph, controlPlane, securityHistoryResult, loadedSecurityHistory, regressionPolicyResult, riskExceptionsResult, riskExceptionApplication, riskExceptionLifecycle, legalCompliance);
 
 if (summaryFile) fs.appendFileSync(summaryFile, `${markdown}\n`);
 await postPrComment(markdown);
@@ -1563,6 +1661,10 @@ setOutput('new-findings', newFindings.length);
 setOutput('existing-findings', existingFindings.length);
 setOutput('dependency-findings', dependencyFindings.length);
 setOutput('dependency-review-status', dependencyReview.status);
+setOutput('legal-compliance-state', legalCompliance.state);
+setOutput('legal-compliance-findings', legalCompliance.summary?.total || 0);
+setOutput('legal-compliance-high', legalCompliance.summary?.high || 0);
+setOutput('legal-compliance-file', legalComplianceReports.jsonFile);
 setOutput('risk-score', risk.score);
 setOutput('risk-level', risk.level);
 setOutput('scanned-files', files.length);
@@ -1633,7 +1735,7 @@ setOutput('risk-exceptions-lapsed', riskExceptionLifecycle ? riskExceptionLifecy
 setOutput('risk-exceptions-file', riskExceptionReports.jsonFile);
 setOutput('risk-exceptions-markdown', riskExceptionReports.markdownFile);
 
-console.log(`MABRIG DevShield AI v${VERSION}: ${findings.length} total findings (${newFindings.length} new, ${existingFindings.length} baseline-existing), ${dependencyFindings.length} dependency findings, ${ignored} suppressed, risk ${risk.level} (${risk.score}/100), ${files.length} files scanned.`);
+console.log(`MABRIG DevShield AI v${VERSION}: ${findings.length} security findings (${newFindings.length} new, ${existingFindings.length} baseline-existing), ${dependencyFindings.length} dependency findings, ${legalCompliance.summary?.total || 0} legal/compliance signals (${legalComplianceMode}), ${ignored} suppressed, risk ${risk.level} (${risk.score}/100), ${files.length} files scanned.`);
 
 if (failOn !== 'none') {
   const threshold = severityRank[failOn] || severityRank.critical;
