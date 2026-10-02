@@ -33,5 +33,6 @@
   "riskExceptionsMode": "auto",
   "riskExceptionsFile": ".devshield-exceptions.json",
   "riskExceptionMaxDays": 90,
-  "riskExceptionAllowCritical": false
+  "riskExceptionAllowCritical": false,
+  "legalComplianceMode": "advisory"
 }
