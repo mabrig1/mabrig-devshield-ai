@@ -12,8 +12,9 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.8 hardens Runtime Guard against DNS-rebinding/TOCTOU behavior by pinning each probe connection to a freshly validated public IP while preserving the original TLS hostname, on top of the v2.7 MCP authorization guard:
+Version 2.9 turns DevShield into a unified security-and-assurance run: the existing security control plane now includes the Legal & Compliance Shield as a first-class, reportable layer, while preserving v2.8 Runtime Guard DNS pinning and the v2.7 MCP authorization guard:
 
+- **Unified Legal & Compliance Shield (v2.9)** — repository-facing licence, privacy, terms, AI-disclosure, high-stakes claim and minor-processing signals now appear in the normal Action/CLI run, with advisory-by-default and explicit enforcement modes.
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
 - **Policy-as-code** with a repository-owned `.devshield.json`.
@@ -84,6 +85,29 @@ npm run control-boundary
 ```
 
 See [Human Control Boundary Engine](docs/HUMAN-CONTROL-BOUNDARY.md) for the evidence model, guardrails, oversight-theatre signal, and experimental comparison semantics.
+
+## Legal & Compliance Shield
+
+DevShield v2.9 runs the Legal & Compliance Shield in **advisory** mode by default. Advisory findings are included in the job summary and dedicated JSON/Markdown evidence, but they do **not** change the security risk score or fail a pull request.
+
+```yaml
+- uses: mabrig1/mabrig-devshield-ai@main
+  with:
+    github-token: ${{ github.token }}
+    legal-compliance: advisory
+```
+
+Teams that deliberately want these signals to participate in the normal severity gate can opt in:
+
+```yaml
+- uses: mabrig1/mabrig-devshield-ai@main
+  with:
+    github-token: ${{ github.token }}
+    legal-compliance: enforce
+    fail-on: high
+```
+
+Use `legal-compliance: off` to disable the layer. The scanner is automated risk spotting only; it does not determine legal compliance and is not a substitute for qualified legal or regulatory review. See [Legal & Compliance Shield](docs/LEGAL-COMPLIANCE.md).
 
 ## Runtime Guard
 
