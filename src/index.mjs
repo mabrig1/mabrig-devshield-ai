@@ -1006,6 +1006,18 @@ function makeSarif(findings) {
     'dependency-license-denied': { id: 'dependency-license-denied', severity: 'medium', category: 'dependencies', message: 'A newly introduced dependency uses a denied license.', cwe: 'CWE-1104', remediation: 'Replace the dependency or review the license policy.' }
   };
   for (const [k, v] of Object.entries(synthetic)) ruleDefs.set(k, v);
+  for (const finding of findings) {
+    if (!ruleDefs.has(finding.rule)) {
+      ruleDefs.set(finding.rule, {
+        id: finding.rule,
+        severity: finding.severity,
+        category: finding.category,
+        message: finding.message,
+        cwe: finding.cwe || '',
+        remediation: finding.remediation || ''
+      });
+    }
+  }
 
   const sarifRules = ruleIds.map(id => {
     const r = ruleDefs.get(id) || { id, severity: 'medium', category: 'security', message: id, cwe: '', remediation: '' };
