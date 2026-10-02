@@ -15,6 +15,7 @@ node --test "$ACTION_ROOT/test/regression-policy.test.mjs"
 node --test "$ACTION_ROOT/test/risk-exceptions.test.mjs"
 node --test "$ACTION_ROOT/test/runtime-guard.test.mjs"
 node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
+node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -593,4 +594,4 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.8 Runtime DNS Pinning smoke tests passed."
+echo "DevShield v2.9 Unified Assurance smoke tests passed."
