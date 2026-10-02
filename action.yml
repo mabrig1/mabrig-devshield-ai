@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Security control plane for pull requests with time-bound risk acceptance, policy-aware regression gates, tamper-evident graph history, blast-radius analysis, SARIF, and optional AI analysis.'
+description: 'Unified security and compliance control plane for pull requests with legal-risk advisory, regression gates, tamper-evident graph history, runtime probing, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -150,6 +150,10 @@ inputs:
     description: 'Allow an active exception to affect critical regression-policy items. Default false; deterministic critical findings remain unsuppressed regardless.'
     required: false
     default: ''
+  legal-compliance:
+    description: 'Legal & Compliance Shield mode: off, advisory, or enforce. Advisory is the safe default and does not affect merge gating.'
+    required: false
+    default: ''
   runtime-guard:
     description: 'Runtime Guard mode: off or probe. Probe sends controlled, non-destructive attack-shaped markers to an explicitly configured preview/staging URL.'
     required: false
@@ -226,6 +230,18 @@ outputs:
   dependency-review-status:
     description: 'Dependency review status: success, unavailable, skipped, disabled, or fixture.'
     value: ${{ steps.devshield.outputs.dependency-review-status }}
+  legal-compliance-state:
+    description: 'Legal & Compliance Shield mode/state: disabled, advisory, or enforce.'
+    value: ${{ steps.devshield.outputs.legal-compliance-state }}
+  legal-compliance-findings:
+    description: 'Total legal/compliance advisory findings.'
+    value: ${{ steps.devshield.outputs.legal-compliance-findings }}
+  legal-compliance-high:
+    description: 'High-severity legal/compliance advisory findings.'
+    value: ${{ steps.devshield.outputs.legal-compliance-high }}
+  legal-compliance-file:
+    description: 'Path to the Legal & Compliance Shield JSON report.'
+    value: ${{ steps.devshield.outputs.legal-compliance-file }}
   risk-score:
     description: 'Risk score from 0 to 100 for findings that participate in the merge gate.'
     value: ${{ steps.devshield.outputs.risk-score }}
@@ -500,6 +516,7 @@ runs:
         INPUT_RISK_EXCEPTIONS_FILE: ${{ inputs.risk-exceptions-file }}
         INPUT_RISK_EXCEPTION_MAX_DAYS: ${{ inputs.risk-exception-max-days }}
         INPUT_RISK_EXCEPTION_ALLOW_CRITICAL: ${{ inputs.risk-exception-allow-critical }}
+        INPUT_LEGAL_COMPLIANCE: ${{ inputs.legal-compliance }}
         INPUT_SARIF: ${{ inputs.sarif }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
         INPUT_CLOUD_API_URL: ${{ inputs.cloud-api-url }}

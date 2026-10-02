@@ -15,6 +15,7 @@ node --test "$ACTION_ROOT/test/regression-policy.test.mjs"
 node --test "$ACTION_ROOT/test/risk-exceptions.test.mjs"
 node --test "$ACTION_ROOT/test/runtime-guard.test.mjs"
 node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
+node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -82,6 +83,9 @@ COUNT="$(assert_output "$REPO1/out.txt" findings-count)"
 LEVEL="$(assert_output "$REPO1/out.txt" risk-level)"
 REPORT="$(assert_output "$REPO1/out.txt" report-file)"
 SARIF="$(assert_output "$REPO1/out.txt" sarif-file)"
+LEGAL_STATE="$(assert_output "$REPO1/out.txt" legal-compliance-state)"
+LEGAL_COUNT="$(assert_output "$REPO1/out.txt" legal-compliance-findings)"
+LEGAL_REPORT="$(assert_output "$REPO1/out.txt" legal-compliance-file)"
 
 if [[ -z "$COUNT" || "$COUNT" -lt 7 ]]; then
   echo "Expected at least 7 findings, got ${COUNT:-missing}" >&2
@@ -93,6 +97,12 @@ if [[ "$LEVEL" != "critical" ]]; then
   exit 1
 fi
 node -e "JSON.parse(require('fs').readFileSync('$REPO1/$REPORT','utf8')); JSON.parse(require('fs').readFileSync('$REPO1/$SARIF','utf8'))"
+if [[ "$LEGAL_STATE" != "advisory" || -z "$LEGAL_COUNT" || "$LEGAL_COUNT" -lt 1 ]]; then
+  echo "Expected advisory Legal & Compliance Shield findings, got state=$LEGAL_STATE count=${LEGAL_COUNT:-missing}" >&2
+  exit 1
+fi
+test -s "$REPO1/$LEGAL_REPORT"
+node -e "const r=JSON.parse(require('fs').readFileSync('$REPO1/$LEGAL_REPORT','utf8')); if(r.mode!=='advisory') throw new Error('legal mode mismatch')"
 
 # 2) Diff-aware default must not re-report legacy findings on untouched lines.
 REPO2="$TMP/diffaware"
@@ -593,4 +603,44 @@ if [[ $STATUS -eq 0 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.8 Runtime DNS Pinning smoke tests passed."
+# 11) Explicit legal/compliance enforcement participates in the normal fail-on gate.
+REPO11="$TMP/legal-enforce"
+mkdir -p "$REPO11"
+cd "$REPO11"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf '{"name":"legal-enforce-fixture","private":true}\n' > package.json
+printf '# Safe fixture\n' > README.md
+printf 'export const version = 1;\n' > app.js
+git add package.json README.md app.js
+git commit -qm "baseline"
+printf 'export const version = 2;\n' > app.js
+git add app.js
+git commit -qm "safe code change"
+
+: > "$REPO11/out.txt"
+set +e
+GITHUB_WORKSPACE="$REPO11" \
+GITHUB_OUTPUT="$REPO11/out.txt" \
+INPUT_FAIL_ON=high \
+INPUT_COMMENT=false \
+INPUT_LEGAL_COMPLIANCE=enforce \
+INPUT_DEPENDENCY_REVIEW=false \
+node "$ACTION_ROOT/src/index.mjs" >/dev/null 2>&1
+LEGAL_STATUS=$?
+set -e
+if [[ $LEGAL_STATUS -eq 0 ]]; then
+  echo "Expected legal-compliance=enforce with missing LICENSE to fail at high severity" >&2
+  exit 1
+fi
+if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-state)" != "enforce" ]]; then
+  echo "Expected legal-compliance-state=enforce" >&2
+  exit 1
+fi
+if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-high)" -lt 1 ]]; then
+  echo "Expected at least one high legal/compliance finding" >&2
+  exit 1
+fi
+
+echo "DevShield v2.9 Unified Assurance smoke tests passed."

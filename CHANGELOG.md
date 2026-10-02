@@ -4,6 +4,23 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.9.0] - 2026-10-02
+
+### Added
+- Unified Legal & Compliance Shield in the normal DevShield Action and local CLI.
+- Safe-by-default `advisory` mode that reports legal/compliance signals without changing merge-gate risk.
+- Explicit `enforce` mode for teams that deliberately choose to include legal/compliance signals in the existing `fail-on` gate.
+- Dedicated `devshield-legal-compliance.json` and Markdown evidence artifacts.
+- Action outputs for legal/compliance state, total findings, high-severity signals, and report path.
+- Policy-as-code support through `legalComplianceMode` in `.devshield.json`.
+- Legal/compliance unit tests are now included in the full smoke regression suite.
+
+### Safety
+- Legal/compliance output remains automated risk spotting, not legal advice or a determination of compliance.
+- Advisory mode is the default so existing DevShield customers are not unexpectedly blocked.
+- Enforcement is explicit and continues to use the same transparent severity/fail-on mechanics as deterministic DevShield gates.
+
+
 ## [2.8.0] - 2026-09-25
 
 ### Added
