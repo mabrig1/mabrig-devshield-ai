@@ -17,6 +17,7 @@ node --test "$ACTION_ROOT/test/runtime-guard.test.mjs"
 node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
 node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
 node --test "$ACTION_ROOT/test/web-threat-intel.test.mjs"
+node --test "$ACTION_ROOT/test/edge-abuse-shield.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -692,4 +693,49 @@ for (const expected of [
 }
 NODE
 
-echo "DevShield v2.10 Web Attack Shield smoke tests passed."
+
+# 13) Edge Abuse Shield catches missing high-value route protection, spoofable limiter keys,
+# distributed rate-limit state mistakes, and client-side bot secret references.
+REPO13="$TMP/edge-abuse"
+mkdir -p "$REPO13/src/app/api/auth/login"
+cd "$REPO13"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = true;\n' > base.js
+git add base.js
+git commit -qm "baseline"
+cat > src/app/api/auth/login/route.ts <<'TS'
+const attempts = new Map();
+const limiter = { limit: async (key) => ({ success: (attempts.get(key) || 0) < 5 }) };
+export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  attempts.set(ip, (attempts.get(ip) || 0) + 1);
+  const result = await limiter.limit(ip);
+  if (!result.success) return new Response("Too Many Requests", { status: 429 });
+  return new Response("ok");
+}
+TS
+cat > src/login-form.tsx <<'TSX'
+"use client";
+const secret = process.env.TURNSTILE_SECRET_TOKEN;
+export function LoginForm() { return <form />; }
+TSX
+git add .
+git commit -qm "add abuse-defense fixture"
+run_scan "$REPO13"
+REPORT13="$(assert_output "$REPO13/out.txt" report-file)"
+node - "$REPO13/$REPORT13" <<'NODE'
+const fs = require('fs');
+const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const ids = new Set((report.findings || []).map(f => f.rule));
+for (const expected of [
+  'spoofable-forwarded-ip-rate-limit',
+  'serverless-in-memory-rate-limit',
+  'client-bot-secret-reference'
+]) {
+  if (!ids.has(expected)) throw new Error('Missing edge-abuse finding: ' + expected);
+}
+NODE
+
+echo "DevShield v2.11 Web Attack + Edge Abuse Shield smoke tests passed."
