@@ -46,6 +46,7 @@ Version 2.9 turns DevShield into a unified security-and-assurance run: the exist
 - **Runtime DNS Pinning (v2.8)** resolves and validates the target immediately before each runtime request, forces the socket to that approved IP, disables connection reuse, preserves TLS/SNI hostname validation, and rejects public-to-private DNS rebinding.
 - **Web Attack Shield (v2.10)** adds deterministic Next.js advisory-range checks and source/config patterns for current RCE and SSRF families.
 - **Edge Abuse Shield (v2.11)** reviews high-value POST routes for observable rate-limit/bot-challenge coverage, spoofable forwarded-IP limiter keys, serverless in-memory counters, and client-side bot-verification secret references. Missing in-repo controls remain verification signals because edge/WAF policy can live outside source control.
+- **Runtime Abuse Verification (v2.12)** can optionally send 2-10 sequential GET requests to a same-origin preview/staging path and record rate-limit, challenge, and blocking evidence without attempting credentials, forms, or load testing.
 
 ## Quick start
 
@@ -124,7 +125,23 @@ Runtime Guard is disabled by default. Enable it only for an explicitly configure
     runtime-enforce: false
 ```
 
-Runtime Guard currently measures runtime/WAF protection signals; a passed-through marker is **not** proof that the application is exploitable. See [Runtime Guard v2.8](docs/runtime-guard.md) for safety defaults, protected-preview configuration, outputs, and enforcement guidance.
+Runtime Guard currently measures runtime/WAF protection signals; a passed-through marker is **not** proof that the application is exploitable.
+
+For bounded abuse-control verification, enable the optional sequential GET probe:
+
+```yaml
+- uses: mabrig1/mabrig-devshield-ai@main
+  with:
+    runtime-guard: probe
+    runtime-target: ${{ steps.preview.outputs.url }}
+    runtime-abuse-probe: true
+    runtime-abuse-path: /api/login
+    runtime-abuse-request-count: 6
+    runtime-abuse-delay-ms: 250
+    runtime-abuse-enforce: false
+```
+
+The abuse probe never submits credentials or form bodies and is capped at 10 sequential requests. A result of `no-abuse-control-signal` means only that this bounded probe did not observe a rate-limit, challenge, or blocking signal. See [Runtime Guard](docs/runtime-guard.md) for safety defaults, protected-preview configuration, outputs, and enforcement guidance.
 
 ## Local CLI and pre-commit protection
 
