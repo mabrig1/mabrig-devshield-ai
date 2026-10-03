@@ -194,6 +194,26 @@ inputs:
     description: 'Optional Vercel Deployment Protection bypass token. Supply from a GitHub secret.'
     required: false
     default: ''
+  runtime-abuse-probe:
+    description: 'Run a bounded abuse-control probe using only sequential GET requests (2-10 requests; disabled by default).'
+    required: false
+    default: 'false'
+  runtime-abuse-path:
+    description: 'Optional same-origin absolute path for the bounded abuse-control probe, for example /api/login. Query strings and fragments are rejected.'
+    required: false
+    default: ''
+  runtime-abuse-request-count:
+    description: 'Number of sequential abuse-control probe requests, clamped from 2 to 10.'
+    required: false
+    default: '6'
+  runtime-abuse-delay-ms:
+    description: 'Delay between abuse-control probe requests in milliseconds, clamped from 100 to 2000.'
+    required: false
+    default: '250'
+  runtime-abuse-enforce:
+    description: 'Fail Runtime Guard when the bounded abuse probe observes no rate-limit, challenge, or blocking signal.'
+    required: false
+    default: 'false'
   sarif:
     description: 'Write a SARIF 2.1.0 report for GitHub Code Scanning or other SARIF consumers.'
     required: false
@@ -467,6 +487,15 @@ outputs:
   runtime-block-rate:
     description: 'Percentage of Runtime Guard probes receiving recognized block responses.'
     value: ${{ steps.runtime-guard.outputs.runtime-block-rate }}
+  runtime-abuse-state:
+    description: 'Bounded abuse-control probe state: disabled, rate-limit-signal, challenge-signal, block-signal, no-abuse-control-signal, or inconclusive-*.'
+    value: ${{ steps.runtime-guard.outputs.runtime-abuse-state }}
+  runtime-abuse-requests:
+    description: 'Number of bounded sequential abuse-control GET requests executed.'
+    value: ${{ steps.runtime-guard.outputs.runtime-abuse-requests }}
+  runtime-abuse-signals:
+    description: 'Number of abuse-probe responses carrying a recognized rate-limit, challenge, or blocking signal.'
+    value: ${{ steps.runtime-guard.outputs.runtime-abuse-signals }}
   runtime-report-file:
     description: 'Path to the Runtime Guard JSON report.'
     value: ${{ steps.runtime-guard.outputs.runtime-report-file }}
@@ -537,6 +566,11 @@ runs:
         INPUT_RUNTIME_SARIF: ${{ inputs.runtime-sarif }}
         INPUT_RUNTIME_AUTH_HEADER: ${{ inputs.runtime-auth-header }}
         INPUT_RUNTIME_VERCEL_BYPASS_TOKEN: ${{ inputs.runtime-vercel-bypass-token }}
+        INPUT_RUNTIME_ABUSE_PROBE: ${{ inputs.runtime-abuse-probe }}
+        INPUT_RUNTIME_ABUSE_PATH: ${{ inputs.runtime-abuse-path }}
+        INPUT_RUNTIME_ABUSE_REQUEST_COUNT: ${{ inputs.runtime-abuse-request-count }}
+        INPUT_RUNTIME_ABUSE_DELAY_MS: ${{ inputs.runtime-abuse-delay-ms }}
+        INPUT_RUNTIME_ABUSE_ENFORCE: ${{ inputs.runtime-abuse-enforce }}
         INPUT_REPORT_DIR: ${{ inputs.report-dir }}
       run: node "$GITHUB_ACTION_PATH/bin/runtime-guard.mjs"
 branding:
