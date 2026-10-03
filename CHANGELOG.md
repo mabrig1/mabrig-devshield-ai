@@ -4,6 +4,48 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.12.0] - 2026-10-03
+
+### Added
+- Bounded Runtime Guard abuse-control probing for preview/staging targets using only sequential GET requests.
+- Same-origin route targeting through `runtime-abuse-path`, with query strings, fragments, and cross-origin paths rejected.
+- Recognition of runtime defense signals including HTTP 429/403, `Retry-After`, exhausted rate-limit headers, and Cloudflare challenge metadata.
+- Action inputs for request count (2-10), inter-request delay (100-2000 ms), optional enforcement, and dedicated runtime abuse outputs.
+- Runtime report schema v2 with separate abuse-control evidence and summary.
+
+### Safety
+- The abuse probe is not a load test and is capped at 10 sequential requests.
+- It sends no credentials, login attempts, form bodies, or destructive payloads.
+- A missing signal does not prove a deployment is exploitable; it only means the bounded probe did not observe rate-limit, challenge, or block evidence.
+- DNS pinning, HTTPS defaults, private-target restrictions, disabled redirects, and protected-preview token support remain active.
+
+## [2.11.0] - 2026-10-03
+
+### Added
+- Edge Abuse Shield for high-value login/auth/register/password/admin/payment/contact POST routes that lack an observable in-file rate-limit or bot-challenge signal.
+- Detection for rate-limit logic keyed from `X-Forwarded-For` without an observable trusted-proxy boundary.
+- Detection for process-memory rate-limit counters on high-value routes that can fragment or reset across serverless/cluster instances.
+- Critical detection for bot-challenge secret/private/token environment variables referenced from client-side code.
+- Dedicated unit tests plus end-to-end smoke coverage.
+
+### Security
+- Missing in-repository controls are reported as verification signals, not proof that Cloudflare, Vercel, or another external edge/WAF layer is absent.
+- Recommended defense is layered: edge rate limiting/bot challenge/WAF plus application-side limits and a shared atomic store where distributed enforcement is required.
+- Forwarded client-IP headers are treated as trustworthy only after an explicit reverse-proxy trust boundary is established.
+
+## [2.10.0] - 2026-10-03
+
+### Added
+- Web Attack Shield with deterministic Next.js advisory-range checks for the September 2026 `next/og` ImageResponse RCE, August 2026 AVIF image-optimization RCE, and July 2026 SSRF/security cluster.
+- Source-level detection for request-controlled SVG data flowing into Node.js `ImageResponse` and for dynamic external rewrite hostnames.
+- Focused unit tests and an end-to-end smoke fixture using an affected Next.js 16.2.10 application.
+
+### Security
+- The 16.x patched floor for the latest `next/og` RCE is Next.js 16.3.6.
+- Version findings identify affected packages; source-pattern checks improve reachability evidence without claiming exploitation.
+- WAF controls are treated as defense in depth, not a substitute for upgrading a vulnerable framework.
+
+
 ## [2.9.0] - 2026-10-02
 
 ### Added

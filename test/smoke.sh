@@ -16,6 +16,8 @@ node --test "$ACTION_ROOT/test/risk-exceptions.test.mjs"
 node --test "$ACTION_ROOT/test/runtime-guard.test.mjs"
 node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
 node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
+node --test "$ACTION_ROOT/test/web-threat-intel.test.mjs"
+node --test "$ACTION_ROOT/test/edge-abuse-shield.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -643,4 +645,97 @@ if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-high)" -lt 1 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.9 Unified Assurance smoke tests passed."
+
+# 12) October 2026 web-framework threat intelligence catches vendor-affected Next.js versions
+# and the request-controlled next/og SVG pattern even when generic advisory feeds are delayed.
+REPO12="$TMP/web-threat-intel"
+mkdir -p "$REPO12"
+cd "$REPO12"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = true;\n' > base.js
+git add base.js
+git commit -qm "baseline"
+cat > package.json <<'JSON'
+{
+  "name": "web-threat-fixture",
+  "private": true,
+  "dependencies": {
+    "next": "16.2.10",
+    "react": "19.2.4"
+  }
+}
+JSON
+mkdir -p src/app/og
+cat > src/app/og/route.tsx <<'TSX'
+import { ImageResponse } from "next/og";
+export async function GET(request: Request) {
+  const value = new URL(request.url).searchParams.get("value") || "";
+  return new ImageResponse(<svg><title>{value}</title></svg>);
+}
+TSX
+git add package.json src/app/og/route.tsx
+git commit -qm "add vulnerable next fixture"
+run_scan "$REPO12"
+REPORT12="$(assert_output "$REPO12/out.txt" report-file)"
+node - "$REPO12/$REPORT12" <<'NODE'
+const fs = require('fs');
+const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const ids = new Set((report.findings || []).map(f => f.rule));
+for (const expected of [
+  'nextjs-image-response-rce-version',
+  'nextjs-avif-image-optimization-rce-version',
+  'nextjs-july-2026-security-cluster',
+  'nextjs-image-response-untrusted-svg'
+]) {
+  if (!ids.has(expected)) throw new Error('Missing web-threat finding: ' + expected);
+}
+NODE
+
+
+# 13) Edge Abuse Shield catches missing high-value route protection, spoofable limiter keys,
+# distributed rate-limit state mistakes, and client-side bot secret references.
+REPO13="$TMP/edge-abuse"
+mkdir -p "$REPO13/src/app/api/auth/login"
+cd "$REPO13"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = true;\n' > base.js
+git add base.js
+git commit -qm "baseline"
+cat > src/app/api/auth/login/route.ts <<'TS'
+const attempts = new Map();
+const limiter = { limit: async (key) => ({ success: (attempts.get(key) || 0) < 5 }) };
+export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  attempts.set(ip, (attempts.get(ip) || 0) + 1);
+  const result = await limiter.limit(ip);
+  if (!result.success) return new Response("Too Many Requests", { status: 429 });
+  return new Response("ok");
+}
+TS
+cat > src/login-form.tsx <<'TSX'
+"use client";
+const secret = process.env.TURNSTILE_SECRET_TOKEN;
+export function LoginForm() { return <form />; }
+TSX
+git add .
+git commit -qm "add abuse-defense fixture"
+run_scan "$REPO13"
+REPORT13="$(assert_output "$REPO13/out.txt" report-file)"
+node - "$REPO13/$REPORT13" <<'NODE'
+const fs = require('fs');
+const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const ids = new Set((report.findings || []).map(f => f.rule));
+for (const expected of [
+  'spoofable-forwarded-ip-rate-limit',
+  'serverless-in-memory-rate-limit',
+  'client-bot-secret-reference'
+]) {
+  if (!ids.has(expected)) throw new Error('Missing edge-abuse finding: ' + expected);
+}
+NODE
+
+echo "DevShield v2.11 Web Attack + Edge Abuse Shield smoke tests passed."

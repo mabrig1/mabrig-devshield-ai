@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { isPrivateIp, resolveRuntimeAddress, runRuntimeGuard, sanitizeTarget, validateRuntimeTarget } from '../src/runtime-guard.mjs';
+import { buildAbuseTarget, defenseSignals, isPrivateIp, resolveRuntimeAddress, runRuntimeGuard, sanitizeTarget, validateRuntimeTarget } from '../src/runtime-guard.mjs';
 
 function response(status, headers = {}) {
   return {
@@ -156,4 +156,96 @@ test('custom fetch mode remains injectable and is marked as not DNS-pinned', asy
     workspace
   });
   assert.equal(result.report.policy.dnsPinning, false);
+});
+
+
+test('defenseSignals recognizes rate-limit and challenge headers', () => {
+  const headers = {
+    get: key => ({
+      'cf-mitigated': 'challenge',
+      'retry-after': '30',
+      'ratelimit-remaining': '0'
+    })[String(key).toLowerCase()] || null
+  };
+  const signals = defenseSignals(429, headers);
+  assert(signals.includes('http-429'));
+  assert(signals.includes('cloudflare-challenge'));
+  assert(signals.includes('retry-after'));
+  assert(signals.includes('rate-limit-exhausted'));
+});
+
+test('buildAbuseTarget only accepts same-origin absolute paths', () => {
+  assert.equal(buildAbuseTarget('https://example.com/preview', '/api/login').toString(), 'https://example.com/api/login');
+  assert.throws(() => buildAbuseTarget('https://example.com/preview', 'https://evil.example/x'), /same-origin absolute path/);
+  assert.throws(() => buildAbuseTarget('https://example.com/preview', '//evil.example/x'), /same-origin absolute path/);
+  assert.throws(() => buildAbuseTarget('https://example.com/preview', '/api/login?token=x'), /must not contain query/);
+});
+
+test('bounded abuse probe recognizes a rate-limit response without sending credentials', async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'devshield-runtime-'));
+  let calls = 0;
+  const seen = [];
+  const result = await runRuntimeGuard({
+    target: 'https://example.com/preview',
+    fetchFn: async (url, init) => {
+      calls++;
+      seen.push({ url: String(url), method: init?.method, body: init?.body });
+      if (calls === 1) return response(200);
+      if (calls <= 4) return response(403);
+      if (calls === 5) return response(200);
+      if (calls === 6) return response(200);
+      return response(429, { 'retry-after': '60' });
+    },
+    lookupFn: publicLookup,
+    workspace,
+    abuseProbe: true,
+    abusePath: '/api/login',
+    abuseRequestCount: 3,
+    abuseDelayMs: 100,
+    sleepFn: async () => {}
+  });
+
+  assert.equal(result.report.abuse.state, 'rate-limit-signal');
+  assert.equal(result.report.abuse.summary.total, 3);
+  assert.equal(result.report.abuse.requests.at(-1).status, 429);
+  assert(seen.every(x => x.method === 'GET'));
+  assert(seen.every(x => x.body == null));
+  assert(seen.some(x => x.url.includes('/api/login?__devshield_abuse_probe=')));
+});
+
+test('bounded abuse probe is capped at 10 sequential requests', async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'devshield-runtime-'));
+  let calls = 0;
+  const result = await runRuntimeGuard({
+    target: 'https://example.com/preview',
+    fetchFn: async () => {
+      calls++;
+      return response(calls <= 4 ? (calls === 1 ? 200 : 403) : 200);
+    },
+    lookupFn: publicLookup,
+    workspace,
+    abuseProbe: true,
+    abuseRequestCount: 1000,
+    abuseDelayMs: 100,
+    sleepFn: async () => {}
+  });
+  assert.equal(result.report.abuse.summary.total, 10);
+});
+
+test('abuse enforcement fails when no rate-limit, challenge, or block signal is observed', async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'devshield-runtime-'));
+  let calls = 0;
+  const result = await runRuntimeGuard({
+    target: 'https://example.com/preview',
+    fetchFn: async () => response(calls++ === 0 ? 200 : calls <= 3 ? 403 : 200),
+    lookupFn: publicLookup,
+    workspace,
+    abuseProbe: true,
+    abuseRequestCount: 3,
+    abuseDelayMs: 100,
+    abuseEnforce: true,
+    sleepFn: async () => {}
+  });
+  assert.equal(result.report.abuse.state, 'no-abuse-control-signal');
+  assert.equal(result.shouldFail, true);
 });

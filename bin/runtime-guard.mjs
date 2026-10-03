@@ -7,7 +7,9 @@ try {
     console.log('MABRIG DevShield Runtime Guard is disabled.');
   } else {
     const summary = result.report.summary;
-    console.log(`Runtime Guard: ${result.report.state}; blocked=${summary.blocked}/${summary.total}; block-rate=${summary.blockRate}%`);
+    const abuse = result.report.abuse;
+    const abuseText = abuse?.enabled ? `; abuse=${abuse.state}; abuse-requests=${abuse.summary.total}` : '';
+    console.log(`Runtime Guard: ${result.report.state}; blocked=${summary.blocked}/${summary.total}; block-rate=${summary.blockRate}%${abuseText}`);
     if (result.shouldFail) process.exitCode = 2;
   }
 } catch (error) {
