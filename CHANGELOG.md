@@ -4,6 +4,21 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.12.0] - 2026-10-03
+
+### Added
+- Bounded Runtime Guard abuse-control probing for preview/staging targets using only sequential GET requests.
+- Same-origin route targeting through `runtime-abuse-path`, with query strings, fragments, and cross-origin paths rejected.
+- Recognition of runtime defense signals including HTTP 429/403, `Retry-After`, exhausted rate-limit headers, and Cloudflare challenge metadata.
+- Action inputs for request count (2-10), inter-request delay (100-2000 ms), optional enforcement, and dedicated runtime abuse outputs.
+- Runtime report schema v2 with separate abuse-control evidence and summary.
+
+### Safety
+- The abuse probe is not a load test and is capped at 10 sequential requests.
+- It sends no credentials, login attempts, form bodies, or destructive payloads.
+- A missing signal does not prove a deployment is exploitable; it only means the bounded probe did not observe rate-limit, challenge, or block evidence.
+- DNS pinning, HTTPS defaults, private-target restrictions, disabled redirects, and protected-preview token support remain active.
+
 ## [2.11.0] - 2026-10-03
 
 ### Added
