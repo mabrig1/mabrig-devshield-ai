@@ -16,7 +16,7 @@ import { scanLegalCompliance } from './legal-compliance.mjs';
 import { scanWebThreatIntel } from './web-threat-intel.mjs';
 import { scanEdgeAbuseShield } from './edge-abuse-shield.mjs';
 
-const VERSION = '2.11.0';
+const VERSION = '2.12.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
