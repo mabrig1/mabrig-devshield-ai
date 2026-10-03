@@ -4,6 +4,19 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.10.0] - 2026-10-03
+
+### Added
+- Web Attack Shield with deterministic Next.js advisory-range checks for the September 2026 `next/og` ImageResponse RCE, August 2026 AVIF image-optimization RCE, and July 2026 SSRF/security cluster.
+- Source-level detection for request-controlled SVG data flowing into Node.js `ImageResponse` and for dynamic external rewrite hostnames.
+- Focused unit tests and an end-to-end smoke fixture using an affected Next.js 16.2.10 application.
+
+### Security
+- The 16.x patched floor for the latest `next/og` RCE is Next.js 16.3.6.
+- Version findings identify affected packages; source-pattern checks improve reachability evidence without claiming exploitation.
+- WAF controls are treated as defense in depth, not a substitute for upgrading a vulnerable framework.
+
+
 ## [2.9.0] - 2026-10-02
 
 ### Added
