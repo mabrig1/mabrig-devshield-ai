@@ -4,6 +4,20 @@ All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
 
+## [2.11.0] - 2026-10-03
+
+### Added
+- Edge Abuse Shield for high-value login/auth/register/password/admin/payment/contact POST routes that lack an observable in-file rate-limit or bot-challenge signal.
+- Detection for rate-limit logic keyed from `X-Forwarded-For` without an observable trusted-proxy boundary.
+- Detection for process-memory rate-limit counters on high-value routes that can fragment or reset across serverless/cluster instances.
+- Critical detection for bot-challenge secret/private/token environment variables referenced from client-side code.
+- Dedicated unit tests plus end-to-end smoke coverage.
+
+### Security
+- Missing in-repository controls are reported as verification signals, not proof that Cloudflare, Vercel, or another external edge/WAF layer is absent.
+- Recommended defense is layered: edge rate limiting/bot challenge/WAF plus application-side limits and a shared atomic store where distributed enforcement is required.
+- Forwarded client-IP headers are treated as trustworthy only after an explicit reverse-proxy trust boundary is established.
+
 ## [2.10.0] - 2026-10-03
 
 ### Added
