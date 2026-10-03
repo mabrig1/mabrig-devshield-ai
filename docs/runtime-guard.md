@@ -59,3 +59,24 @@ Runtime Guard writes:
 Runtime Guard v2.8 closes the DNS validation/request gap for the default Action/CLI transport. Custom injected fetch functions are still supported for testing and advanced integrations, but are reported as custom-fetch mode rather than DNS-pinned.
 
 The next planned layer is an ephemeral Coraza + OWASP CRS policy-simulation adapter, followed by provider-backed temporary edge protection.
+
+
+## v2.12 bounded abuse-control verification
+
+Runtime Guard can optionally verify whether a preview/staging route emits a rate-limit, challenge, or blocking signal within a deliberately small request window.
+
+```yaml
+runtime-guard: probe
+runtime-target: https://preview.example.com
+runtime-abuse-probe: true
+runtime-abuse-path: /api/login
+runtime-abuse-request-count: 6
+runtime-abuse-delay-ms: 250
+runtime-abuse-enforce: false
+```
+
+Safety boundaries are fixed: the configured path must stay on the runtime target origin; query strings and fragments are rejected; the request count is clamped to 2-10; delays are clamped to 100-2000 ms; requests are sequential GETs with no body or credential attempt. This is **not** a load test.
+
+Recognized evidence includes HTTP 429/403, `Retry-After`, exhausted common rate-limit remaining headers, and Cloudflare challenge metadata. `no-abuse-control-signal` means the bounded sequence observed none of those signals; it does not establish that the route is vulnerable or that no external WAF/rate-limit policy exists.
+
+Set `runtime-abuse-enforce: true` only when the preview environment is deliberately configured to respond within this bounded sequence. Enforcement treats `rate-limit-signal`, `challenge-signal`, and `block-signal` as passing states.
