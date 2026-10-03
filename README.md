@@ -44,6 +44,8 @@ Version 2.9 turns DevShield into a unified security-and-assurance run: the exist
 - **Trust-Boundary Hardening (v2.6)** for structured MCP config auditing, hard-coded MCP env secrets, unpinned `npx` MCP servers, unsafe privileged PR checkout opt-outs, fork-repository checkout, and npm provenance downgrade signals.
 - **MCP Authorization & Protocol Guard (v2.7)** for insecure OAuth endpoints, embedded OAuth/bearer credentials, deprecated DCR/SSE configurations, and strict-mode overbroad OAuth scopes.
 - **Runtime DNS Pinning (v2.8)** resolves and validates the target immediately before each runtime request, forces the socket to that approved IP, disables connection reuse, preserves TLS/SNI hostname validation, and rejects public-to-private DNS rebinding.
+- **Web Attack Shield (v2.10)** adds deterministic Next.js advisory-range checks and source/config patterns for current RCE and SSRF families.
+- **Edge Abuse Shield (v2.11)** reviews high-value POST routes for observable rate-limit/bot-challenge coverage, spoofable forwarded-IP limiter keys, serverless in-memory counters, and client-side bot-verification secret references. Missing in-repo controls remain verification signals because edge/WAF policy can live outside source control.
 
 ## Quick start
 
