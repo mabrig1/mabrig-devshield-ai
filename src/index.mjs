@@ -13,8 +13,9 @@ import { appendSecurityHistory, loadSecurityHistory, securityHistoryMarkdown, wr
 import { evaluateOwnerApprovals, evaluateRegressionPolicy, regressionPolicyMarkdown, writeRegressionPolicy } from './regression-policy.mjs';
 import { applyRiskExceptions, classifyRiskExceptionLifecycle, createRiskExceptionSnapshot, loadRiskExceptions, riskExceptionsMarkdown, writeRiskExceptions } from './risk-exceptions.mjs';
 import { scanLegalCompliance } from './legal-compliance.mjs';
+import { scanWebThreatIntel } from './web-threat-intel.mjs';
 
-const VERSION = '2.9.0';
+const VERSION = '2.10.0';
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -541,6 +542,27 @@ function scanFile(rel, addedLines = null) {
     if (!policyAllows(special)) continue;
     const sourceLine = lines[Math.max(0, issue.line - 1)] || issue.lineText || issue.id;
     findings.push(makeFinding(special, rel, issue.line, sourceLine));
+  }
+
+  // Current web-framework advisory checks complement generic dependency feeds with
+  // deterministic vendor ranges and vulnerable source/config patterns.
+  for (const issue of scanWebThreatIntel(rel, content)) {
+    if (!shouldScanLine(issue.line)) continue;
+    const special = rule(
+      issue.id,
+      issue.severity,
+      issue.category,
+      /./,
+      issue.message,
+      issue.cwe,
+      issue.remediation,
+      issue.strictOnly ? { strictOnly: true } : {}
+    );
+    if (!policyAllows(special)) continue;
+    const sourceLine = lines[Math.max(0, issue.line - 1)] || issue.id;
+    const sev = effectiveSeverity(special);
+    if (inlineSuppressed(lines, Math.max(0, issue.line - 1), special.id, sev)) { ignored++; continue; }
+    findings.push(makeFinding(special, rel, issue.line, sourceLine, { confidence: issue.confidence || 'high' }));
   }
 
   // Contextual workflow check: pull_request_target + checkout of PR head is especially dangerous.

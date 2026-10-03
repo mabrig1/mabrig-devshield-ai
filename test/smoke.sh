@@ -16,6 +16,7 @@ node --test "$ACTION_ROOT/test/risk-exceptions.test.mjs"
 node --test "$ACTION_ROOT/test/runtime-guard.test.mjs"
 node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
 node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
+node --test "$ACTION_ROOT/test/web-threat-intel.test.mjs"
 
 run_scan() {
   local repo="$1"
@@ -643,4 +644,52 @@ if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-high)" -lt 1 ]]; then
   exit 1
 fi
 
-echo "DevShield v2.9 Unified Assurance smoke tests passed."
+
+# 12) October 2026 web-framework threat intelligence catches vendor-affected Next.js versions
+# and the request-controlled next/og SVG pattern even when generic advisory feeds are delayed.
+REPO12="$TMP/web-threat-intel"
+mkdir -p "$REPO12"
+cd "$REPO12"
+git init -q
+git config user.email "devshield-test@example.invalid"
+git config user.name "DevShield Test"
+printf 'export const safe = true;\n' > base.js
+git add base.js
+git commit -qm "baseline"
+cat > package.json <<'JSON'
+{
+  "name": "web-threat-fixture",
+  "private": true,
+  "dependencies": {
+    "next": "16.2.10",
+    "react": "19.2.4"
+  }
+}
+JSON
+mkdir -p src/app/og
+cat > src/app/og/route.tsx <<'TSX'
+import { ImageResponse } from "next/og";
+export async function GET(request: Request) {
+  const value = new URL(request.url).searchParams.get("value") || "";
+  return new ImageResponse(<svg><title>{value}</title></svg>);
+}
+TSX
+git add package.json src/app/og/route.tsx
+git commit -qm "add vulnerable next fixture"
+run_scan "$REPO12"
+REPORT12="$(assert_output "$REPO12/out.txt" report-file)"
+node - "$REPO12/$REPORT12" <<'NODE'
+const fs = require('fs');
+const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const ids = new Set((report.findings || []).map(f => f.rule));
+for (const expected of [
+  'nextjs-image-response-rce-version',
+  'nextjs-avif-image-optimization-rce-version',
+  'nextjs-july-2026-security-cluster',
+  'nextjs-image-response-untrusted-svg'
+]) {
+  if (!ids.has(expected)) throw new Error('Missing web-threat finding: ' + expected);
+}
+NODE
+
+echo "DevShield v2.10 Web Attack Shield smoke tests passed."
