@@ -1,6 +1,6 @@
 {
   "name": "mabrig-devshield-ai-action",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -19,7 +19,8 @@
     "runtime": "node bin/runtime-guard.mjs",
     "control-boundary": "node examples/human-control-boundary.mjs",
     "legal": "node bin/legal-scan.mjs",
-    "api-trust": "node bin/api-trust.mjs"
+    "api-trust": "node bin/api-trust.mjs",
+    "waf:test": "node --test test/runtime-waf.test.mjs"
   },
   "engines": {
     "node": ">=20"
