@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.0.0] - 2026-10-04
+
+### Added
+- API & Agent Trust Shield for modern API backends, payment flows, webhooks, JWT boundaries, SSRF exposure, and agent/tool authority.
+- Deterministic checks for credentialed wildcard CORS, client/public secret namespaces, JWT none/hard-coded signing secrets, unsigned webhook handlers, unauthenticated-looking admin routes, user-controlled outbound requests, missing idempotency signals, payment secrets in browser code, disabled human approval, wildcard tool authority, and model-output-to-shell execution.
+- Standalone `devshield-api-trust` CLI plus `npm run api-trust` and `devshield --api-trust` routing.
+- Advisory-by-default and explicit enforcement modes with configurable severity threshold.
+- JSON, Markdown, and SARIF 2.1.0 evidence artifacts plus GitHub Action outputs.
+- Dedicated API/agent trust regression tests in the smoke suite.
+
+### Safety
+- The new shield is static and heuristic; findings do not claim exploitability or compromise.
+- Advisory mode is the default so the v3 upgrade does not unexpectedly block existing consumers.
+- Agentic findings focus on observable authority and execution patterns rather than trying to infer model intent.
+
+
+
 All notable changes to **MABRIG DevShield AI** are documented here.
 
 ## Unreleased
