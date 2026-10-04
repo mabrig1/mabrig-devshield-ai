@@ -83,8 +83,8 @@ function requiredHeaders(spec, pathItem, operation) {
     .map(param => String(param.name).toLowerCase());
 }
 
-function contentTypes(operation) {
-  const body = operation?.requestBody;
+function contentTypes(spec, operation) {
+  const body = dereferenceLocal(spec, operation?.requestBody);
   if (!body?.content || typeof body.content !== 'object') return [];
   return Object.keys(body.content).map(value => String(value).toLowerCase());
 }
@@ -129,7 +129,7 @@ export function openApiToWaapRoutes(spec) {
         requireAuth: operationRequiresAuth(spec.security, operation)
       };
 
-      const types = contentTypes(operation);
+      const types = contentTypes(spec, operation);
       if (types.length) route.requestContentTypes = types;
       if (headers.length) route.requiredHeaders = headers;
       if (headers.includes('x-api-version')) route.apiVersionRequired = true;
