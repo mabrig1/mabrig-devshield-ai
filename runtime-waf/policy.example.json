@@ -14,15 +14,119 @@
     "windowSeconds": 60,
     "key": "ip"
   },
+  "waap": {
+    "apiDiscovery": {
+      "enabled": true,
+      "apiPrefixes": ["/api/", "/graphql"],
+      "unknownAction": "observe",
+      "excludePrefixes": ["/api/health"]
+    },
+    "parameterPollution": {
+      "enabled": true,
+      "action": "observe",
+      "allowDuplicateKeys": []
+    },
+    "apiVersions": {
+      "allowed": ["2026-10"],
+      "header": "x-api-version",
+      "action": "observe"
+    },
+    "graphql": {
+      "enabled": true,
+      "allowIntrospection": false,
+      "maxDepth": 10,
+      "maxAliases": 20,
+      "maxQueryBytes": 65536
+    },
+    "responseInspection": {
+      "enabled": true,
+      "inspectJson": true,
+      "maxBytes": 131072,
+      "blockOnSecrets": false,
+      "redactHeaders": ["x-debug-token", "x-internal-key"]
+    }
+  },
   "routes": [
+    {
+      "id": "login",
+      "pathPrefix": "/api/auth/login",
+      "methods": ["POST"],
+      "requestContentTypes": ["application/json"],
+      "maxBodyBytes": 32768,
+      "authAbuse": {
+        "enabled": true,
+        "failures": 8,
+        "windowSeconds": 600,
+        "statuses": [401, 403]
+      },
+      "requestSchema": {
+        "allowedFields": ["email", "password"],
+        "rejectUnknownFields": true,
+        "maxFields": 2,
+        "fields": {
+          "email": { "type": "string", "required": true, "maxLength": 254 },
+          "password": { "type": "string", "required": true, "maxLength": 128 }
+        }
+      },
+      "rateLimit": {
+        "enabled": true,
+        "requests": 20,
+        "windowSeconds": 60,
+        "key": "ip-path"
+      }
+    },
+    {
+      "id": "orders",
+      "pathPrefix": "/api/orders",
+      "methods": ["GET", "POST"],
+      "requireAuth": true,
+      "requestContentTypes": ["application/json"],
+      "requiredHeaders": ["x-request-id"],
+      "apiVersionRequired": true,
+      "maxBodyBytes": 262144,
+      "requestSchema": {
+        "allowedFields": ["items"],
+        "rejectUnknownFields": true,
+        "maxFields": 1,
+        "fields": {
+          "items": { "type": "array", "required": true }
+        }
+      },
+      "rateLimit": {
+        "enabled": true,
+        "requests": 60,
+        "windowSeconds": 60,
+        "key": "ip-path"
+      }
+    },
     {
       "id": "admin",
       "pathPrefix": "/api/admin",
       "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
       "requireAuth": true,
+      "apiVersionRequired": true,
       "rateLimit": {
         "enabled": true,
         "requests": 40,
+        "windowSeconds": 60,
+        "key": "ip-path"
+      }
+    },
+    {
+      "id": "graphql",
+      "pathPrefix": "/graphql",
+      "methods": ["GET", "POST"],
+      "requestContentTypes": ["application/json", "application/graphql"],
+      "graphql": {
+        "enabled": true,
+        "allowIntrospection": false,
+        "maxDepth": 8,
+        "maxAliases": 10,
+        "maxQueryBytes": 32768
+      },
+      "rateLimit": {
+        "enabled": true,
+        "requests": 80,
         "windowSeconds": 60,
         "key": "ip-path"
       }
@@ -32,6 +136,7 @@
       "pathPrefix": "/api/payments",
       "methods": ["POST"],
       "requireAuth": true,
+      "requestContentTypes": ["application/json"],
       "maxBodyBytes": 262144,
       "rateLimit": {
         "enabled": true,
@@ -45,6 +150,7 @@
       "pathPrefix": "/api/payments/webhook",
       "methods": ["POST"],
       "requireAuth": false,
+      "requestContentTypes": ["application/json"],
       "maxBodyBytes": 262144,
       "webhook": {
         "header": "x-paystack-signature",
