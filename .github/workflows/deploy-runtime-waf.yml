@@ -1,0 +1,66 @@
+name: Deploy DevShield Runtime WAF
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_origin:
+        description: "Protected application origin, for example https://origin.example.com"
+        required: true
+        type: string
+      waf_mode:
+        description: "Runtime WAF mode"
+        required: true
+        type: choice
+        default: observe
+        options:
+          - observe
+          - block
+      block_score:
+        description: "Block threshold from 1 to 100"
+        required: true
+        default: "70"
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime-waf
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install Wrangler
+        run: npm install
+
+      - name: Build deployment config
+        env:
+          UPSTREAM_ORIGIN: ${{ inputs.upstream_origin }}
+          WAF_MODE: ${{ inputs.waf_mode }}
+          WAF_BLOCK_SCORE: ${{ inputs.block_score }}
+        run: |
+          cp wrangler.toml.example wrangler.toml
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path("wrangler.toml")
+          text = p.read_text()
+          text = text.replace('WAF_MODE = "observe"', 'WAF_MODE = "' + os.environ["WAF_MODE"] + '"')
+          text = text.replace('WAF_BLOCK_SCORE = "70"', 'WAF_BLOCK_SCORE = "' + os.environ["WAF_BLOCK_SCORE"] + '"')
+          text = text.replace('UPSTREAM_ORIGIN = "https://REPLACE-WITH-UPSTREAM.example.com"', 'UPSTREAM_ORIGIN = "' + os.environ["UPSTREAM_ORIGIN"] + '"')
+          p.write_text(text)
+          PY
+
+      - name: Deploy Runtime WAF
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
