@@ -22,7 +22,7 @@
     "legal": "node bin/legal-scan.mjs",
     "api-trust": "node bin/api-trust.mjs",
     "waf:test": "node --test test/runtime-waf.test.mjs",
-    "waap:test": "node --test test/waap.test.mjs test/waap-openapi.test.mjs",
+    "waap:test": "node --test test/waap.test.mjs test/waap-openapi.test.mjs test/waap-worker.test.mjs",
     "waap:policy": "node bin/waap-policy.mjs"
   },
   "engines": {
