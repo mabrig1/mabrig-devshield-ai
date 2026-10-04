@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { normalizeWaapPolicy, normalizeWaapRoute } from './waap.mjs';
+import { normalizeWaapPolicy, normalizeWaapRoute, pathMatchesRoute } from './waap.mjs';
 
 export const DEFAULT_WAF_POLICY = Object.freeze({
   mode: 'observe',
@@ -159,8 +159,12 @@ export function policyFromEnvironment(env = {}) {
 export function routePolicyFor(url, method, policy) {
   const pathname = new URL(url).pathname;
   const candidates = policy.routes
-    .filter(route => pathname.startsWith(route.pathPrefix))
-    .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
+    .filter(route => pathMatchesRoute(pathname, route))
+    .sort((a, b) => {
+      const left = String(a.pathTemplate || a.pathPrefix || '/').length;
+      const right = String(b.pathTemplate || b.pathPrefix || '/').length;
+      return right - left;
+    });
 
   const route = candidates[0] || null;
   if (!route) return null;
