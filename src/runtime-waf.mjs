@@ -158,6 +158,7 @@ export function policyFromEnvironment(env = {}) {
 
 export function routePolicyFor(url, method, policy) {
   const pathname = new URL(url).pathname;
+  const requestedMethod = String(method).toUpperCase();
   const candidates = policy.routes
     .filter(route => pathMatchesRoute(pathname, route))
     .sort((a, b) => {
@@ -166,10 +167,13 @@ export function routePolicyFor(url, method, policy) {
       return right - left;
     });
 
-  const route = candidates[0] || null;
-  if (!route) return null;
-  if (route.methods.length && !route.methods.includes(String(method).toUpperCase())) return route;
-  return route;
+  if (!candidates.length) return null;
+
+  const methodMatch = candidates.find(route =>
+    !route.methods.length || route.methods.includes(requestedMethod)
+  );
+
+  return methodMatch || candidates[0];
 }
 
 function bearerAlgNone(authorization) {
