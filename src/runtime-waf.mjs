@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { normalizeWaapPolicy, normalizeWaapRoute } from './waap.mjs';
 
 export const DEFAULT_WAF_POLICY = Object.freeze({
   mode: 'observe',
@@ -97,7 +98,8 @@ function normalizeRoute(route) {
           secretEnv: String(route.webhook.secretEnv || ''),
           encoding: route.webhook.encoding === 'base64' ? 'base64' : 'hex'
         }
-      : null
+      : null,
+    ...normalizeWaapRoute(route)
   };
 }
 
@@ -125,6 +127,7 @@ export function normalizeWafPolicy(input = {}) {
       windowSeconds: clampNumber(rate.windowSeconds, 1, 86400, DEFAULT_WAF_POLICY.rateLimit.windowSeconds),
       key: ['ip', 'ip-path'].includes(rate.key) ? rate.key : DEFAULT_WAF_POLICY.rateLimit.key
     },
+    waap: normalizeWaapPolicy(policy.waap || {}),
     routes: Array.isArray(policy.routes) ? policy.routes.map(normalizeRoute) : []
   };
 }
@@ -144,6 +147,11 @@ export function policyFromEnvironment(env = {}) {
   if (env.WAF_BLOCK_SCORE) policy.blockScore = clampNumber(env.WAF_BLOCK_SCORE, 1, 100, policy.blockScore);
   if (env.WAF_ALLOWED_ORIGINS) {
     policy.allowedOrigins = String(env.WAF_ALLOWED_ORIGINS).split(',').map(v => v.trim()).filter(Boolean);
+  }
+  if (env.WAAP_POLICY_JSON) {
+    try {
+      policy.waap = normalizeWaapPolicy(JSON.parse(String(env.WAAP_POLICY_JSON)));
+    } catch {}
   }
   return policy;
 }
