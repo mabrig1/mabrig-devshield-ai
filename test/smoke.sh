@@ -17,6 +17,8 @@ node --test "$ACTION_ROOT/test/runtime-guard.test.mjs"
 node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
 node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
 node --test "$ACTION_ROOT/test/api-agent-trust.test.mjs"
+node --test "$ACTION_ROOT/test/runtime-waf.test.mjs"
+node --check "$ACTION_ROOT/runtime-waf/worker/src/index.js"
 
 run_scan() {
   local repo="$1"
@@ -644,4 +646,4 @@ if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-high)" -lt 1 ]]; then
   exit 1
 fi
 
-echo "DevShield v3.0 Unified Assurance smoke tests passed."
+echo "DevShield v3.1 Unified Assurance smoke tests passed."

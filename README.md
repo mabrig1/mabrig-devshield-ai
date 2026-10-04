@@ -12,9 +12,10 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 3.0 extends the unified security-and-assurance run with a dedicated API & Agent Trust Shield, while preserving the v2.9 Legal & Compliance Shield, v2.8 Runtime Guard DNS pinning, and v2.7 MCP authorization guard:
+Version 3.1 adds an embedded, deployable Runtime WAF for Cloudflare Workers while preserving the v3.0 API & Agent Trust Shield and the existing security control plane:
 
-- **API & Agent Trust Shield (v3.0)** — detects credentialed wildcard CORS, browser-exposed secrets, weak JWT patterns, unsigned webhooks, admin-route authorization gaps, user-controlled outbound requests, missing idempotency signals, wildcard agent authority, disabled human approval, and model-output-to-shell execution. It is advisory by default with explicit enforcement.\n- **Unified Legal & Compliance Shield (v2.9)** — repository-facing licence, privacy, terms, AI-disclosure, high-stakes claim and minor-processing signals now appear in the normal Action/CLI run, with advisory-by-default and explicit enforcement modes.
+- **Runtime WAF (v3.1)** — deployable edge enforcement with observe/block modes, request scoring, injection/traversal signals, origin allowlists, route auth/method policies, request-size controls, rate limiting, HMAC webhook verification, privacy-safe logs, and origin-bypass protection. See [Runtime WAF](runtime-waf/README.md).\n- **API & Agent Trust Shield (v3.0)** — detects credentialed wildcard CORS, browser-exposed secrets, weak JWT patterns, unsigned webhooks, admin-route authorization gaps, user-controlled outbound requests, missing idempotency signals, wildcard agent authority, disabled human approval, and model-output-to-shell execution. It is advisory by default with explicit enforcement.
+- **Unified Legal & Compliance Shield (v2.9)** — repository-facing licence, privacy, terms, AI-disclosure, high-stakes claim and minor-processing signals now appear in the normal Action/CLI run, with advisory-by-default and explicit enforcement modes.
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
 - **Policy-as-code** with a repository-owned `.devshield.json`.
@@ -72,7 +73,9 @@ jobs:
           fail-on: high
 ```
 
-The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.\n\nRun the v3 API/agent trust pass locally with `npm run api-trust`, or enforce it in CI with `api-trust: enforce` and `api-trust-fail-on: high`. See [API & Agent Trust Shield](docs/API_AGENT_TRUST_SHIELD.md).
+The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.
+
+Run the v3 API/agent trust pass locally with `npm run api-trust`, or enforce it in CI with `api-trust: enforce` and `api-trust-fail-on: high`. See [API & Agent Trust Shield](docs/API_AGENT_TRUST_SHIELD.md).
 
 ## Human Control Boundary research
 
@@ -123,6 +126,20 @@ Runtime Guard is disabled by default. Enable it only for an explicitly configure
 ```
 
 Runtime Guard currently measures runtime/WAF protection signals; a passed-through marker is **not** proof that the application is exploitable. See [Runtime Guard v2.8](docs/runtime-guard.md) for safety defaults, protected-preview configuration, outputs, and enforcement guidance.
+
+### Runtime WAF
+
+DevShield v3.1 can also sit **in front of** an application as a Cloudflare Worker:
+
+```
+Internet -> DevShield Runtime WAF -> protected origin
+```
+
+The WAF defaults to `observe` mode, so suspicious requests are scored and logged without blocking. After policy tuning and Runtime Guard validation, switch explicitly to `block`.
+
+The deployable module lives in `runtime-waf/`. It supports per-route method/auth rules, request-size controls, rate limiting, origin allowlists, injection/path-traversal detection, JWT `alg=none` rejection signals, HMAC webhook verification, fixed-upstream proxying, and an optional shared secret that lets the origin reject WAF-bypass traffic.
+
+See [Runtime WAF deployment guide](runtime-waf/README.md).
 
 ## Local CLI and pre-commit protection
 

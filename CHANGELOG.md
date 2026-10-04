@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.1.0] - 2026-10-04
+
+### Added
+- Deployable DevShield Runtime WAF for Cloudflare Workers.
+- Safe `observe` default plus explicit `block` enforcement mode.
+- Request scoring for SQLi/XSS/path-traversal/command-injection/template/null-byte signals.
+- Scanner user-agent, origin allowlist, country policy, JWT `alg=none`, route method/auth, request-size, and rate-limit controls.
+- Global and per-route rate limiting with optional Workers KV persistence.
+- Generic HMAC webhook verification with SHA-256/SHA-512 and hex/base64 encodings.
+- Paystack-style SHA-512 webhook policy example.
+- Fixed-upstream reverse proxy with `ORIGIN_SHARED_SECRET` support to prevent direct-origin bypass.
+- Privacy-safe structured WAF logs that exclude bodies, Authorization data, IP addresses, and secret values.
+- Manual GitHub Actions deployment workflow for Cloudflare.
+- Dedicated Runtime WAF regression suite and Worker syntax validation.
+
+### Safety
+- Runtime WAF starts in observe mode to reduce false-positive deployment risk.
+- Interactive Cloudflare Managed Challenge is not emulated in Worker code; v3.1 implements deterministic observe/block only.
+- Runtime WAF is additive and does not replace application authorization, managed WAF rules, DDoS controls, or origin/network restrictions.
+
+
 ## [3.0.0] - 2026-10-04
 
 ### Added
