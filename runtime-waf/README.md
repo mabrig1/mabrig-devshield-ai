@@ -1,6 +1,6 @@
 # DevShield Runtime WAF
 
-DevShield Runtime WAF is the deployable enforcement layer introduced in v3.1.
+DevShield Runtime WAF is the deployable enforcement layer introduced in v3.1. DevShield v3.2 extends this same edge Worker into a WAAP layer for API discovery, request contracts, GraphQL controls, authentication-abuse protection, and response data protection.
 
 It is separate from Runtime Guard:
 
@@ -9,7 +9,7 @@ It is separate from Runtime Guard:
 
 ## Architecture
 
-Internet -> DevShield Runtime WAF -> protected origin application
+Internet -> DevShield WAAP / Runtime WAF -> protected origin application
 
 The Worker proxies approved traffic to a fixed `UPSTREAM_ORIGIN`. It never accepts an arbitrary upstream URL from the client.
 
@@ -30,6 +30,10 @@ block
 ```
 
 Do not start a production deployment in block mode unless you have validated normal application traffic first.
+
+## WAAP extension
+
+For the v3.2 Web Application & API Protection controls, see [WAAP.md](WAAP.md). The WAAP layer uses the same Worker and the same observe/block safety model; there is no separate proxy hop.
 
 ## Included protections
 
