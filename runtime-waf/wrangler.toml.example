@@ -9,7 +9,23 @@ WAF_BLOCK_SCORE = "70"
 WAF_ALLOWED_ORIGINS = ""
 UPSTREAM_ORIGIN = "https://REPLACE-WITH-UPSTREAM.example.com"
 
-# Optional persistent best-effort rate limiting:
+# WAAP policy can be supplied through WAF_POLICY_JSON or WAAP_POLICY_JSON.
+# Keep enforcement in "observe" until normal application traffic has been validated.
+#
+# WAF_POLICY_JSON = "{\"waap\":{\"apiDiscovery\":{\"enabled\":true,\"unknownAction\":\"observe\"}}}"
+
+# Optional best-effort global request rate limiting:
 # [[kv_namespaces]]
 # binding = "RATE_KV"
-# id = "REPLACE_WITH_KV_NAMESPACE_ID"
+# id = "REPLACE_WITH_RATE_KV_NAMESPACE_ID"
+
+# Recommended for persistent WAAP endpoint inventory and auth-abuse counters:
+# [[kv_namespaces]]
+# binding = "WAAP_KV"
+# id = "REPLACE_WITH_WAAP_KV_NAMESPACE_ID"
+
+# Recommended secrets:
+#   npx wrangler secret put ORIGIN_SHARED_SECRET
+#   npx wrangler secret put WAAP_ADMIN_TOKEN
+# Add webhook/provider secrets referenced by route policy, for example:
+#   npx wrangler secret put PAYSTACK_SECRET_KEY
