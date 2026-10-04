@@ -18,6 +18,7 @@ node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
 node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
 node --test "$ACTION_ROOT/test/api-agent-trust.test.mjs"
 node --test "$ACTION_ROOT/test/runtime-waf.test.mjs"
+node --check "$ACTION_ROOT/runtime-waf/worker/src/index.js"
 
 run_scan() {
   local repo="$1"
