@@ -1,0 +1,63 @@
+{
+  "mode": "observe",
+  "blockScore": 70,
+  "inspectBodyBytes": 65536,
+  "maxBodyBytes": 1048576,
+  "allowedOrigins": [
+    "https://example.com"
+  ],
+  "trustedBots": [],
+  "blockedCountries": [],
+  "rateLimit": {
+    "enabled": true,
+    "requests": 120,
+    "windowSeconds": 60,
+    "key": "ip"
+  },
+  "routes": [
+    {
+      "id": "admin",
+      "pathPrefix": "/api/admin",
+      "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      "requireAuth": true,
+      "rateLimit": {
+        "enabled": true,
+        "requests": 40,
+        "windowSeconds": 60,
+        "key": "ip-path"
+      }
+    },
+    {
+      "id": "checkout",
+      "pathPrefix": "/api/payments",
+      "methods": ["POST"],
+      "requireAuth": true,
+      "maxBodyBytes": 262144,
+      "rateLimit": {
+        "enabled": true,
+        "requests": 20,
+        "windowSeconds": 60,
+        "key": "ip-path"
+      }
+    },
+    {
+      "id": "webhook",
+      "pathPrefix": "/api/payments/webhook",
+      "methods": ["POST"],
+      "requireAuth": false,
+      "maxBodyBytes": 262144,
+      "webhook": {
+        "header": "x-paystack-signature",
+        "algorithm": "SHA-512",
+        "secretEnv": "PAYSTACK_SECRET_KEY",
+        "encoding": "hex"
+      },
+      "rateLimit": {
+        "enabled": true,
+        "requests": 180,
+        "windowSeconds": 60,
+        "key": "ip-path"
+      }
+    }
+  ]
+}
