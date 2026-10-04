@@ -12,9 +12,11 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 3.1 adds an embedded, deployable Runtime WAF for Cloudflare Workers while preserving the v3.0 API & Agent Trust Shield and the existing security control plane:
+Version 3.2 extends the embedded Runtime WAF into a WAAP (Web Application & API Protection) edge layer while preserving the v3.0 API & Agent Trust Shield and the existing security control plane:
 
-- **Runtime WAF (v3.1)** — deployable edge enforcement with observe/block modes, request scoring, injection/traversal signals, origin allowlists, route auth/method policies, request-size controls, rate limiting, HMAC webhook verification, privacy-safe logs, and origin-bypass protection. See [Runtime WAF](runtime-waf/README.md).\n- **API & Agent Trust Shield (v3.0)** — detects credentialed wildcard CORS, browser-exposed secrets, weak JWT patterns, unsigned webhooks, admin-route authorization gaps, user-controlled outbound requests, missing idempotency signals, wildcard agent authority, disabled human approval, and model-output-to-shell execution. It is advisory by default with explicit enforcement.
+- **WAAP (v3.2)** — Web Application & API Protection with API discovery, OpenAPI-derived contracts, JSON schema enforcement, parameter-pollution controls, GraphQL limits, authentication-abuse protection, API-version rules, response secret-leak inspection, and persistent endpoint inventory. See [WAAP](runtime-waf/WAAP.md).
+- **Runtime WAF (v3.1)** — deployable edge enforcement with observe/block modes, request scoring, injection/traversal signals, origin allowlists, route auth/method policies, request-size controls, rate limiting, HMAC webhook verification, privacy-safe logs, and origin-bypass protection. See [Runtime WAF](runtime-waf/README.md).
+- **API & Agent Trust Shield (v3.0)** — detects credentialed wildcard CORS, browser-exposed secrets, weak JWT patterns, unsigned webhooks, admin-route authorization gaps, user-controlled outbound requests, missing idempotency signals, wildcard agent authority, disabled human approval, and model-output-to-shell execution. It is advisory by default with explicit enforcement.
 - **Unified Legal & Compliance Shield (v2.9)** — repository-facing licence, privacy, terms, AI-disclosure, high-stakes claim and minor-processing signals now appear in the normal Action/CLI run, with advisory-by-default and explicit enforcement modes.
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
@@ -76,6 +78,14 @@ jobs:
 The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.
 
 Run the v3 API/agent trust pass locally with `npm run api-trust`, or enforce it in CI with `api-trust: enforce` and `api-trust-fail-on: high`. See [API & Agent Trust Shield](docs/API_AGENT_TRUST_SHIELD.md).
+
+Generate a WAAP route policy from an OpenAPI 3.x JSON document with:
+
+```bash
+npm run waap:policy -- openapi.json --out runtime-waf/policy.generated.json
+```
+
+See [DevShield WAAP](runtime-waf/WAAP.md) for API discovery, GraphQL controls, auth-abuse protection, response data protection, and rollout guidance.
 
 ## Human Control Boundary research
 
