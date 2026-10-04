@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { normalizeWaapPolicy, normalizeWaapRoute, pathMatchesRoute } from './waap.mjs';
 
 export const DEFAULT_WAF_POLICY = Object.freeze({
   mode: 'observe',
@@ -97,7 +98,8 @@ function normalizeRoute(route) {
           secretEnv: String(route.webhook.secretEnv || ''),
           encoding: route.webhook.encoding === 'base64' ? 'base64' : 'hex'
         }
-      : null
+      : null,
+    ...normalizeWaapRoute(route)
   };
 }
 
@@ -125,6 +127,7 @@ export function normalizeWafPolicy(input = {}) {
       windowSeconds: clampNumber(rate.windowSeconds, 1, 86400, DEFAULT_WAF_POLICY.rateLimit.windowSeconds),
       key: ['ip', 'ip-path'].includes(rate.key) ? rate.key : DEFAULT_WAF_POLICY.rateLimit.key
     },
+    waap: normalizeWaapPolicy(policy.waap || {}),
     routes: Array.isArray(policy.routes) ? policy.routes.map(normalizeRoute) : []
   };
 }
@@ -145,19 +148,32 @@ export function policyFromEnvironment(env = {}) {
   if (env.WAF_ALLOWED_ORIGINS) {
     policy.allowedOrigins = String(env.WAF_ALLOWED_ORIGINS).split(',').map(v => v.trim()).filter(Boolean);
   }
+  if (env.WAAP_POLICY_JSON) {
+    try {
+      policy.waap = normalizeWaapPolicy(JSON.parse(String(env.WAAP_POLICY_JSON)));
+    } catch {}
+  }
   return policy;
 }
 
 export function routePolicyFor(url, method, policy) {
   const pathname = new URL(url).pathname;
+  const requestedMethod = String(method).toUpperCase();
   const candidates = policy.routes
-    .filter(route => pathname.startsWith(route.pathPrefix))
-    .sort((a, b) => b.pathPrefix.length - a.pathPrefix.length);
+    .filter(route => pathMatchesRoute(pathname, route))
+    .sort((a, b) => {
+      const left = String(a.pathTemplate || a.pathPrefix || '/').length;
+      const right = String(b.pathTemplate || b.pathPrefix || '/').length;
+      return right - left;
+    });
 
-  const route = candidates[0] || null;
-  if (!route) return null;
-  if (route.methods.length && !route.methods.includes(String(method).toUpperCase())) return route;
-  return route;
+  if (!candidates.length) return null;
+
+  const methodMatch = candidates.find(route =>
+    !route.methods.length || route.methods.includes(requestedMethod)
+  );
+
+  return methodMatch || candidates[0];
 }
 
 function bearerAlgNone(authorization) {

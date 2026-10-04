@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.2.0] - 2026-10-04
+
+### Added
+- DevShield WAAP (Web Application & API Protection) layer on top of Runtime WAF.
+- API endpoint inventory with privacy-minimized stable fingerprints and optional Workers KV persistence.
+- Shadow/unknown API detection with observe or block policy.
+- OpenAPI 3.x JSON to WAAP policy generation via `devshield-waap-policy`, `npm run waap:policy`, or `devshield --waap-policy`.
+- Method-aware OpenAPI path-template routing such as `/api/orders/{id}`.
+- Required header and request Content-Type enforcement.
+- API version allowlists and per-route version requirements.
+- Duplicate query parameter / parameter-pollution detection.
+- JSON request contracts with required fields, allowed fields, unknown-field rejection, field type checks, string length limits, enum checks, and numeric bounds.
+- GraphQL introspection, depth, alias/fan-out, and query-size controls.
+- Repeated authentication-failure protection with hashed client identifiers and optional KV persistence.
+- Response secret-leak inspection for small JSON responses plus configurable response-header stripping.
+- Protected WAAP inventory endpoint requiring `WAAP_ADMIN_TOKEN`.
+- WAAP health endpoint and edge integration tests.
+- Dedicated WAAP operations guide and expanded policy example.
+
+### Security
+- WAAP remains observe-first; global block mode must still be enabled explicitly.
+- Endpoint inventory omits query values, request bodies, Authorization data, cookies, and raw client IP addresses.
+- Authentication-abuse keys hash client IPs before persistence.
+- Response inspection never logs response bodies or secret values.
+- API schema enforcement is additive and does not replace application-side authorization or business validation.
+
+
 ## [3.1.0] - 2026-10-04
 
 ### Added

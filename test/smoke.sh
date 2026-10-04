@@ -18,6 +18,12 @@ node --test "$ACTION_ROOT/test/mcp-config-audit.test.mjs"
 node --test "$ACTION_ROOT/test/legal-compliance.test.mjs"
 node --test "$ACTION_ROOT/test/api-agent-trust.test.mjs"
 node --test "$ACTION_ROOT/test/runtime-waf.test.mjs"
+node --test "$ACTION_ROOT/test/waap.test.mjs"
+node --test "$ACTION_ROOT/test/waap-openapi.test.mjs"
+node --test "$ACTION_ROOT/test/waap-worker.test.mjs"
+node --check "$ACTION_ROOT/bin/waap-policy.mjs"
+node --check "$ACTION_ROOT/src/waap.mjs"
+node --check "$ACTION_ROOT/src/waap-openapi.mjs"
 node --check "$ACTION_ROOT/runtime-waf/worker/src/index.js"
 
 run_scan() {
@@ -646,4 +652,4 @@ if [[ "$(assert_output "$REPO11/out.txt" legal-compliance-high)" -lt 1 ]]; then
   exit 1
 fi
 
-echo "DevShield v3.1 Unified Assurance smoke tests passed."
+echo "DevShield v3.2 Unified Assurance smoke tests passed."
