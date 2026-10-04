@@ -163,8 +163,12 @@ async function proxyRequest(request, env, inspection, action) {
   headers.delete('host');
   headers.delete('x-devshield-waf');
   headers.delete('x-devshield-request-id');
+  headers.delete('x-devshield-origin-token');
   headers.set('x-devshield-waf', action === 'observe-high-risk' ? 'observe' : 'pass');
   headers.set('x-devshield-request-id', inspection.requestId);
+  if (env.ORIGIN_SHARED_SECRET) {
+    headers.set('x-devshield-origin-token', String(env.ORIGIN_SHARED_SECRET));
+  }
 
   const init = {
     method: request.method,
