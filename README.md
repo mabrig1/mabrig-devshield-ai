@@ -12,9 +12,9 @@ It runs without an AI key. Teams can optionally add OpenRouter for a second-pass
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
 
-Version 2.9 turns DevShield into a unified security-and-assurance run: the existing security control plane now includes the Legal & Compliance Shield as a first-class, reportable layer, while preserving v2.8 Runtime Guard DNS pinning and the v2.7 MCP authorization guard:
+Version 3.0 extends the unified security-and-assurance run with a dedicated API & Agent Trust Shield, while preserving the v2.9 Legal & Compliance Shield, v2.8 Runtime Guard DNS pinning, and v2.7 MCP authorization guard:
 
-- **Unified Legal & Compliance Shield (v2.9)** — repository-facing licence, privacy, terms, AI-disclosure, high-stakes claim and minor-processing signals now appear in the normal Action/CLI run, with advisory-by-default and explicit enforcement modes.
+- **API & Agent Trust Shield (v3.0)** — detects credentialed wildcard CORS, browser-exposed secrets, weak JWT patterns, unsigned webhooks, admin-route authorization gaps, user-controlled outbound requests, missing idempotency signals, wildcard agent authority, disabled human approval, and model-output-to-shell execution. It is advisory by default with explicit enforcement.\n- **Unified Legal & Compliance Shield (v2.9)** — repository-facing licence, privacy, terms, AI-disclosure, high-stakes claim and minor-processing signals now appear in the normal Action/CLI run, with advisory-by-default and explicit enforcement modes.
 - **Diff-aware by default** — scans newly added lines instead of re-reporting legacy issues in every touched file.
 - **50+ deterministic checks** across secrets, injection, authentication, CI/CD, supply chain, IaC, containers, TLS, CORS, and crypto hygiene.
 - **Policy-as-code** with a repository-owned `.devshield.json`.
@@ -72,7 +72,7 @@ jobs:
           fail-on: high
 ```
 
-The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.
+The default `changed-lines` scope keeps reviews focused on risk introduced by the current change.\n\nRun the v3 API/agent trust pass locally with `npm run api-trust`, or enforce it in CI with `api-trust: enforce` and `api-trust-fail-on: high`. See [API & Agent Trust Shield](docs/API_AGENT_TRUST_SHIELD.md).
 
 ## Human Control Boundary research
 

@@ -1,5 +1,5 @@
 name: 'MABRIG DevShield AI'
-description: 'Unified security and compliance control plane for pull requests with legal-risk advisory, regression gates, tamper-evident graph history, runtime probing, SARIF, and optional AI analysis.'
+description: 'Unified security and compliance control plane with API/agent trust checks, legal-risk advisory, regression gates, runtime probing, SARIF, and optional AI analysis.'
 author: 'MABRIG Technologies'
 inputs:
   github-token:
@@ -154,6 +154,14 @@ inputs:
     description: 'Legal & Compliance Shield mode: off, advisory, or enforce. Advisory is the safe default and does not affect merge gating.'
     required: false
     default: ''
+  api-trust:
+    description: 'API & Agent Trust Shield mode: off, advisory, or enforce. Advisory reports trust-boundary risks without failing CI.'
+    required: false
+    default: 'advisory'
+  api-trust-fail-on:
+    description: 'When api-trust=enforce, fail at or above: critical, high, medium, low, none.'
+    required: false
+    default: 'high'
   runtime-guard:
     description: 'Runtime Guard mode: off or probe. Probe sends controlled, non-destructive attack-shaped markers to an explicitly configured preview/staging URL.'
     required: false
@@ -242,6 +250,24 @@ outputs:
   legal-compliance-file:
     description: 'Path to the Legal & Compliance Shield JSON report.'
     value: ${{ steps.devshield.outputs.legal-compliance-file }}
+  api-trust-state:
+    description: 'API & Agent Trust Shield state: disabled, clean, findings, or blocked.'
+    value: ${{ steps.api-trust.outputs.api-trust-state }}
+  api-trust-findings:
+    description: 'Total API and agent trust findings.'
+    value: ${{ steps.api-trust.outputs.api-trust-findings }}
+  api-trust-critical:
+    description: 'Critical API and agent trust findings.'
+    value: ${{ steps.api-trust.outputs.api-trust-critical }}
+  api-trust-high:
+    description: 'High API and agent trust findings.'
+    value: ${{ steps.api-trust.outputs.api-trust-high }}
+  api-trust-report-file:
+    description: 'Path to the API & Agent Trust Shield JSON report.'
+    value: ${{ steps.api-trust.outputs.api-trust-report-file }}
+  api-trust-sarif-file:
+    description: 'Path to the API & Agent Trust Shield SARIF report.'
+    value: ${{ steps.api-trust.outputs.api-trust-sarif-file }}
   risk-score:
     description: 'Risk score from 0 to 100 for findings that participate in the merge gate.'
     value: ${{ steps.devshield.outputs.risk-score }}
@@ -523,6 +549,16 @@ runs:
         INPUT_CLOUD_TOKEN: ${{ inputs.cloud-token }}
         INPUT_CLOUD_REQUIRED: ${{ inputs.cloud-required }}
       run: node "$GITHUB_ACTION_PATH/src/index.mjs"
+    - id: api-trust
+      if: ${{ inputs.api-trust != 'off' }}
+      shell: bash
+      env:
+        INPUT_API_TRUST: ${{ inputs.api-trust }}
+        INPUT_API_TRUST_FAIL_ON: ${{ inputs.api-trust-fail-on }}
+        INPUT_MAX_FILES: ${{ inputs.max-files }}
+        INPUT_MAX_FILE_BYTES: ${{ inputs.max-file-bytes }}
+        INPUT_REPORT_DIR: ${{ inputs.report-dir }}
+      run: node "$GITHUB_ACTION_PATH/bin/api-trust.mjs" --repository
     - id: runtime-guard
       if: ${{ inputs.runtime-guard != 'off' }}
       shell: bash

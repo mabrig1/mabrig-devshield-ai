@@ -7,6 +7,11 @@ if (args.includes('--inventory')) {
   await import('./inventory.mjs');
   process.exit(process.exitCode || 0);
 }
+if (args.includes('--api-trust')) {
+  process.argv = [...process.argv.slice(0, 2), ...args.filter(arg => arg !== '--api-trust')];
+  await import('./api-trust.mjs');
+  process.exit(process.exitCode || 0);
+}
 const options = new Map();
 const flags = new Set();
 
@@ -38,6 +43,7 @@ Default behavior scans staged Git changes and blocks at high severity.
 Options:
   --staged                 Scan staged changes (default)
   --inventory              Offline npm lockfile evidence (use --inventory --help)
+  --api-trust              API & Agent Trust Shield (use --api-trust --help)
   --changed-files          Scan all lines in changed files
   --repository             Scan tracked repository files
   --scope <scope>          staged|changed-lines|changed-files|repository
