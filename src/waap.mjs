@@ -91,6 +91,7 @@ export function normalizeWaapPolicy(input = {}) {
 
 export function normalizeWaapRoute(route = {}) {
   return {
+    pathTemplate: route.pathTemplate ? String(route.pathTemplate) : null,
     requestContentTypes: stringArray(route.requestContentTypes).map(v => v.toLowerCase()),
     requestSchema: normalizeRequestSchema(route.requestSchema),
     graphql: normalizeGraphql(route.graphql),
@@ -110,12 +111,27 @@ export function normalizeWaapRoute(route = {}) {
   };
 }
 
+export function pathMatchesRoute(pathname, route) {
+  if (route?.pathTemplate) {
+    const actual = String(pathname || '').split('/').filter(Boolean);
+    const expected = String(route.pathTemplate).split('/').filter(Boolean);
+    if (actual.length !== expected.length) return false;
+
+    for (let i = 0; i < expected.length; i++) {
+      const segment = expected[i];
+      if (segment.startsWith('{') && segment.endsWith('}')) continue;
+      if (segment !== actual[i]) return false;
+    }
+    return true;
+  }
+
+  const prefix = String(route?.pathPrefix || '/');
+  return String(pathname || '').startsWith(prefix);
+}
+
 export function apiRouteKnown(url, routes = []) {
   const pathname = new URL(url).pathname;
-  return routes.some(route => {
-    const prefix = String(route.pathPrefix || '/');
-    return pathname.startsWith(prefix);
-  });
+  return routes.some(route => pathMatchesRoute(pathname, route));
 }
 
 function isApiPath(url, waap) {
