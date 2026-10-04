@@ -12,6 +12,11 @@ if (args.includes('--api-trust')) {
   await import('./api-trust.mjs');
   process.exit(process.exitCode || 0);
 }
+if (args.includes('--waap-policy')) {
+  process.argv = [...process.argv.slice(0, 2), ...args.filter(arg => arg !== '--waap-policy')];
+  await import('./waap-policy.mjs');
+  process.exit(process.exitCode || 0);
+}
 const options = new Map();
 const flags = new Set();
 
@@ -44,6 +49,7 @@ Options:
   --staged                 Scan staged changes (default)
   --inventory              Offline npm lockfile evidence (use --inventory --help)
   --api-trust              API & Agent Trust Shield (use --api-trust --help)
+  --waap-policy            Generate WAAP route policy from OpenAPI JSON
   --changed-files          Scan all lines in changed files
   --repository             Scan tracked repository files
   --scope <scope>          staged|changed-lines|changed-files|repository
