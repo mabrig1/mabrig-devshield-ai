@@ -95,6 +95,16 @@ export function normalizeWaapRoute(route = {}) {
     requestSchema: normalizeRequestSchema(route.requestSchema),
     graphql: normalizeGraphql(route.graphql),
     responseInspection: normalizeResponseInspection(route.responseInspection),
+    authAbuse: route.authAbuse && typeof route.authAbuse === 'object'
+      ? {
+          enabled: route.authAbuse.enabled !== false,
+          failures: clampNumber(route.authAbuse.failures, 1, 1000, 10),
+          windowSeconds: clampNumber(route.authAbuse.windowSeconds, 10, 86400, 300),
+          statuses: Array.isArray(route.authAbuse.statuses)
+            ? route.authAbuse.statuses.map(Number).filter(v => Number.isInteger(v) && v >= 400 && v <= 499)
+            : [401, 403]
+        }
+      : null,
     apiVersionRequired: route.apiVersionRequired === true,
     requiredHeaders: stringArray(route.requiredHeaders).map(v => v.toLowerCase())
   };
