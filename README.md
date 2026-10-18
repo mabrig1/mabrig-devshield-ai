@@ -769,6 +769,10 @@ The smoke suite validates:
 3. Keep the stable `v1` compatibility ref pointed at the latest backward-compatible v1 release.
 4. Validate the Action from a separate repository using `mabrig1/mabrig-devshield-ai@v1`.
 
+## DevShield Commercial API MVP
+
+The [Cloudflare Worker + D1 commercial API prototype](commercial-api/README.md) provides tenant-isolated scan ingestion, read-only findings and usage endpoints, scoped hashed API keys, idempotency and quota controls. It is **not deployed** by this repository change; self-service subscriptions, billing, portal and production certification remain future work.
+
 ## Professional services and commercial edition
 
 The public Action and CLI remain useful, transparent and self-managed. MABRIG Technologies monetizes DevShield through:
