@@ -1,0 +1,8 @@
+# Local Cloudflare configuration, one-time tenant SQL and credentials
+wrangler.toml
+.dev.vars
+.dev.vars.*
+*.local.sql
+.generated-tenant-*.sql
+node_modules/
+.wrangler/
