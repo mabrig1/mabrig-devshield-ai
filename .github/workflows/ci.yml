@@ -46,3 +46,15 @@ jobs:
           fail-on: critical
           comment: false
           exclude-paths: 'test/**'
+
+  commercial-api-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Verify commercial API syntax
+        run: node --check commercial-api/worker/src/index.mjs
+      - name: Verify tenant isolation, quotas and scan ingestion
+        run: node --test commercial-api/test/*.test.mjs
