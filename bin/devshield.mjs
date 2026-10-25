@@ -2,6 +2,11 @@
 import process from 'node:process';
 
 const args = process.argv.slice(2);
+if (args.includes('--runtime-advisories')) {
+  process.argv = [...process.argv.slice(0, 2), ...args.filter(arg => arg !== '--runtime-advisories')];
+  await import('./runtime-advisories.mjs');
+  process.exit(process.exitCode || 0);
+}
 if (args.includes('--inventory')) {
   process.argv = [...process.argv.slice(0, 2), ...args.filter(arg => arg !== '--inventory')];
   await import('./inventory.mjs');
@@ -48,6 +53,7 @@ Default behavior scans staged Git changes and blocks at high severity.
 Options:
   --staged                 Scan staged changes (default)
   --inventory              Offline npm lockfile evidence (use --inventory --help)
+  --runtime-advisories     Offline runtime version assessment (use --runtime-advisories --help)
   --api-trust              API & Agent Trust Shield (use --api-trust --help)
   --waap-policy            Generate WAAP route policy from OpenAPI JSON
   --changed-files          Scan all lines in changed files

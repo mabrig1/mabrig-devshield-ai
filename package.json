@@ -1,6 +1,6 @@
 {
   "name": "mabrig-devshield-ai-action",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -8,6 +8,7 @@
     "devshield-remediate": "bin/remediate.mjs",
     "devshield-inventory": "bin/inventory.mjs",
     "devshield-runtime": "bin/runtime-guard.mjs",
+    "devshield-runtime-advisories": "bin/runtime-advisories.mjs",
     "devshield-legal": "bin/legal-scan.mjs",
     "devshield-api-trust": "bin/api-trust.mjs",
     "devshield-waap-policy": "bin/waap-policy.mjs"
@@ -18,6 +19,7 @@
     "remediate": "node bin/remediate.mjs",
     "inventory": "node bin/inventory.mjs",
     "runtime": "node bin/runtime-guard.mjs",
+    "runtime:advisories": "node bin/runtime-advisories.mjs",
     "control-boundary": "node examples/human-control-boundary.mjs",
     "legal": "node bin/legal-scan.mjs",
     "api-trust": "node bin/api-trust.mjs",

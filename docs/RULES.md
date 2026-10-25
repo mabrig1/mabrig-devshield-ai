@@ -146,3 +146,18 @@ Runtime Guard now treats DNS resolution as part of the security boundary instead
 - redirects remain disabled.
 
 Custom injected `fetchFn` integrations are intentionally not labeled DNS-pinned because DevShield cannot control how an arbitrary external fetch implementation resolves names.
+
+## v3.3 October runtime advisories
+
+| Rule | Default severity | Signal |
+| --- | --- | --- |
+| `php-october-2026-runtime` | critical | Exact declaration below the branch's PHP security floor |
+| `node-october-2026-runtime` | high | Exact declaration below the branch's Node.js security floor |
+| `php-unsupported-runtime`, `node-unsupported-runtime` | high | Unsupported upstream runtime declaration |
+| `php-runtime-unverified`, `node-runtime-unverified` | medium | Constraint, alias, prerelease, digest or unlisted branch needs verification |
+| `php-session-upload-progress-review` | medium | Conditional configuration review for PHP's October 23 notice |
+| `litellm-october-2026-artifact` | critical | Reference to an incident release/digest; installation is not established |
+| `litellm-october-2026-review` | medium | Unresolved dependency or container reference needs incident-history review |
+
+All findings participate in the normal policy, scope, baseline, suppression and
+reporting pipeline. See [source evidence, coverage and limitations](OCTOBER-2026-ADVISORIES.md).
