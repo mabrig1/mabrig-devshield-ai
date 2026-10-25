@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { REDACTORS, rules } from './rules.mjs';
 import { auditMcpConfig } from './mcp-config-audit.mjs';
+import { ADVISORY_SNAPSHOT, auditRuntimeAdvisories } from './runtime-advisories.mjs';
 import { agenticMarkdown, createAgenticPlan, writeAgenticPlan } from './agentic-engine.mjs';
 import { createRemediationPlan, remediationMarkdown, writeRemediationPlan } from './remediation-engine.mjs';
 import { createDependencyMission, dependencyMissionMarkdown, loadWorkspaceDependencyEvidence, writeDependencyMission } from './dependency-agent.mjs';
@@ -14,7 +15,7 @@ import { evaluateOwnerApprovals, evaluateRegressionPolicy, regressionPolicyMarkd
 import { applyRiskExceptions, classifyRiskExceptionLifecycle, createRiskExceptionSnapshot, loadRiskExceptions, riskExceptionsMarkdown, writeRiskExceptions } from './risk-exceptions.mjs';
 import { scanLegalCompliance } from './legal-compliance.mjs';
 
-const VERSION = '2.9.0';
+const VERSION = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 const COMMENT_MARKER = '<!-- mabrig-devshield-ai -->';
 const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
 const weights = { low: 2, medium: 7, high: 15, critical: 30 };
@@ -523,6 +524,20 @@ function scanFile(rel, addedLines = null) {
         else findings.push(makeFinding(special, rel, lineNo, line));
       }
     }
+  }
+
+  // Offline runtime declarations use the same scope, policy, suppression and baseline pipeline.
+  for (const issue of auditRuntimeAdvisories(rel, content)) {
+    const evidenceLines = [issue.line, ...(issue.relatedLines || [])];
+    const findingLine = evidenceLines.find(shouldScanLine);
+    if (!findingLine) continue;
+    const special = rule(issue.id, issue.severity, issue.category, /./, issue.message, issue.cwe, issue.remediation);
+    if (!policyAllows(special)) continue;
+    if (inlineSuppressed(lines, findingLine - 1, special.id, effectiveSeverity(special))) { ignored++; continue; }
+    findings.push({
+      ...makeFinding(special, rel, findingLine, crypto.createHash('sha256').update(JSON.stringify(issue.evidence)).digest('hex')),
+      runtimeAdvisory: issue.evidence
+    });
   }
 
   // Structured MCP configuration checks complement line-based rules with actual server boundaries.
@@ -1065,7 +1080,8 @@ function makeSarif(findings) {
           cwe: f.cwe,
           confidence: f.confidence,
           baselineState: f.status || 'new',
-          dependency: f.dependency || undefined
+          dependency: f.dependency || undefined,
+          runtimeAdvisory: f.runtimeAdvisory || undefined
         }
       }))
     }]
@@ -1085,6 +1101,7 @@ function writeReports(files, findings, gateFindings, risk, ignored, baseline, de
   const report = {
     schemaVersion: 2,
     tool: { name: 'MABRIG DevShield AI', version: VERSION },
+    runtimeAdvisorySnapshot: ADVISORY_SNAPSHOT.id,
     generatedAt: new Date().toISOString(),
     repository: event?.repository?.full_name || process.env.GITHUB_REPOSITORY || '',
     headSha: event?.pull_request?.head?.sha || event?.after || process.env.GITHUB_SHA || '',

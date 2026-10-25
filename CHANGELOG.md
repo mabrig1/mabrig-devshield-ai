@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.3.0] - 2026-10-25
+
+### Added
+- Offline October advisory snapshot with primary-source links for PHP2Shell, Node.js runtime security releases and LiteLLM compromised-artifact references.
+- Runtime declaration checks in version files, selected package/Composer fields, Dockerfiles and Compose; unresolved constraints remain review signals.
+- Conditional PHP session review for the October 23 follow-up advisory.
+- Explicit runtime-version CLI via `runtime:advisories` and `devshield --runtime-advisories`.
+- Source/evidence metadata in JSON and SARIF, with deterministic scope, gate and false-positive regression tests.
+
+### Fixed
+- Scanner version now follows package.json instead of reporting the stale 2.9.0 version.
+
+### Boundaries
+- No deployment or compromise claim from repository declarations; no automatic patching, package execution, WAF policy changes or release publication.
+- See [October advisory coverage](docs/OCTOBER-2026-ADVISORIES.md) for limitations and rollout.
+
 ## [3.2.0] - 2026-10-04
 
 ### Added
