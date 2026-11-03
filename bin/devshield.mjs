@@ -17,6 +17,34 @@ if (args.includes('--waap-policy')) {
   await import('./waap-policy.mjs');
   process.exit(process.exitCode || 0);
 }
+// Unknown or misspelled CLI options must never silently weaken a security scan.
+const VALUE_OPTIONS = new Set([
+  'scope', 'fail-on', 'policy', 'config', 'exclude', 'baseline',
+  'baseline-mode', 'dependency-agentic', 'security-graph', 'control-plane',
+  'security-graph-baseline-file', 'security-history', 'security-history-file',
+  'security-history-max-entries', 'regression-gate', 'regression-new-risk-severity',
+  'regression-expanded-exposure', 'regression-inherited-debt',
+  'regression-blast-radius-threshold', 'regression-blast-radius-action',
+  'risk-exceptions', 'risk-exceptions-file', 'risk-exception-max-days',
+  'risk-exception-allow-critical', 'legal-compliance', 'report-dir',
+]);
+const ENUM_OPTIONS = new Map([
+  ['scope', ['staged', 'changed-lines', 'changed-files', 'repository']],
+  ['fail-on', ['critical', 'high', 'medium', 'low', 'none']],
+  ['policy', ['balanced', 'strict', 'secrets-only']],
+  ['baseline-mode', ['new-only', 'report', 'off']],
+  ['dependency-agentic', ['off', 'auto', 'on']],
+  ['security-graph', ['off', 'auto', 'on']],
+  ['control-plane', ['off', 'auto', 'on']],
+  ['security-history', ['off', 'auto', 'on']],
+  ['regression-gate', ['off', 'report', 'enforce']],
+  ['regression-new-risk-severity', ['critical', 'high', 'medium', 'low', 'none']],
+  ['regression-expanded-exposure', ['ignore', 'warn', 'block']],
+  ['regression-inherited-debt', ['ignore', 'warn']],
+  ['regression-blast-radius-action', ['ignore', 'warn', 'block', 'require-owner-approval']],
+  ['risk-exceptions', ['off', 'auto', 'on']],
+  ['legal-compliance', ['off', 'advisory', 'enforce']],
+]);
 const options = new Map();
 const flags = new Set();
 
@@ -28,8 +56,24 @@ for (let i = 0; i < args.length; i++) {
   else if (arg === '--repository') options.set('scope', 'repository');
   else if (arg === '--changed-files') options.set('scope', 'changed-files');
   else if (arg === '--staged') options.set('scope', 'staged');
-  else if (arg.startsWith('--') && i + 1 < args.length) {
-    options.set(arg.slice(2), args[++i]);
+  else if (arg.startsWith('--')) {
+    const name = arg.slice(2);
+    if (!VALUE_OPTIONS.has(name)) {
+      console.error(`Unknown option: ${arg}`);
+      process.exit(2);
+    }
+    const value = args[i + 1];
+    if (!value || value.startsWith('-')) {
+      console.error(`Missing value for ${arg}`);
+      process.exit(2);
+    }
+    const allowed = ENUM_OPTIONS.get(name);
+    if (allowed && !allowed.includes(value)) {
+      console.error(`Invalid value for ${arg}: ${value}. Expected: ${allowed.join(', ')}`);
+      process.exit(2);
+    }
+    options.set(name, value);
+    i++;
   } else {
     console.error(`Unknown argument: ${arg}`);
     process.exit(2);
