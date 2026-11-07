@@ -74,7 +74,7 @@ export function detectRepositoryThreats(source, rel) {
 
   if (/\.py$/i.test(file)) {
     addMatch(findings, source, file,
-      /^(?: {120,}|\t{8,})[ \t]*(?:exec|eval|subprocess\.|os\.system|urllib\.request|requests\.get)\b/gm,
+      /[ \t]{120,}(?:exec|eval|subprocess\.|os\.system|urllib\.request|requests\.get)\b/gm,
       'python-whitespace-concealed-execution', 'high',
       'An execution or network operation appears after unusually long leading whitespace.',
       'Inspect the entire line in a whitespace-visible editor; review the code without running it.');
@@ -87,7 +87,7 @@ export function detectRepositoryThreats(source, rel) {
 
   if (/\.go$/i.test(file)) {
     addMatch(findings, source, file,
-      /^(?: {120,}|\t{8,})[ \t]*(?:exec\.Command|http\.Get|base64\.StdEncoding)\b/gm,
+      /[ \t]{120,}(?:exec\.Command|http\.Get|base64\.StdEncoding)\b/gm,
       'go-whitespace-concealed-operation', 'high',
       'An execution or network operation appears after unusually long leading whitespace.',
       'Examine the full source line, imports, and control flow before building.');
@@ -123,7 +123,7 @@ export function scanRepository(root, limits = {}) {
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Input must be a real directory, not a symlink');
   const report = {
     schema: 'devshield.repository-preflight.v1',
-    mode: 'offline-static-only', root: base,
+    mode: 'offline-static-only',
     complete: true, filesScanned: 0, filesSkippedByType: 0,
     skippedDirectories: [...IGNORED_DIRS], findings: [], errors: []
   };
@@ -134,14 +134,15 @@ export function scanRepository(root, limits = {}) {
   }
   function walk(dir, depth) {
     if (depth > caps.maxDepth) { problem(path.relative(base, dir), 'Maximum depth exceeded'); return; }
-    let children;
-    try { children = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)); }
+    let handle;
+    try { handle = fs.opendirSync(dir); }
     catch { problem(path.relative(base, dir), 'Directory unreadable'); return; }
-    for (const item of children) {
+    try {
+    for (let item = handle.readSync(); item !== null; item = handle.readSync()) {
       const absolute = path.join(dir, item.name);
       const relative = path.relative(base, absolute).replace(/\\/g, '/');
       if (item.isDirectory() && IGNORED_DIRS.has(item.name)) continue;
-      if (++visited > caps.maxFiles) { problem(relative, 'Maximum file and directory count exceeded'); return; }
+      if (++visited > caps.maxFiles) { problem(relative, 'Maximum file and directory count exceeded'); break; }
       let info;
       try { info = fs.lstatSync(absolute); } catch { problem(relative, 'Path unreadable'); continue; }
       if (info.isSymbolicLink()) { problem(relative, 'Symlink not followed; target not scanned'); continue; }
@@ -154,14 +155,25 @@ export function scanRepository(root, limits = {}) {
         fd = fs.openSync(absolute, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
         const opened = fs.fstatSync(fd);
         if (!opened.isFile() || opened.size > caps.maxFileBytes) throw new Error('Not an eligible regular file');
-        const buffer = fs.readFileSync(fd);
-        if (buffer.byteLength > caps.maxFileBytes) throw new Error('Source grew past scan byte limit');
-        const content = decodeFile(buffer, relative);
+        const chunks = [];
+        let bytes = 0;
+        while (bytes <= caps.maxFileBytes) {
+          const length = Math.min(65536, caps.maxFileBytes + 1 - bytes);
+          const chunk = Buffer.allocUnsafe(length);
+          const read = fs.readSync(fd, chunk, 0, length, bytes);
+          if (read === 0) break;
+          chunks.push(chunk.subarray(0, read));
+          bytes += read;
+        }
+        if (bytes > caps.maxFileBytes) throw new Error('Source grew past scan byte limit');
+        const content = decodeFile(Buffer.concat(chunks, bytes), relative);
         report.filesScanned++;
         report.findings.push(...detectRepositoryThreats(content, relative));
       } catch { problem(relative, 'Source file unreadable or unsupported encoding'); }
       finally { if (fd !== undefined) fs.closeSync(fd); }
     }
+    } catch { problem(path.relative(base, dir), 'Directory traversal failed'); }
+    finally { handle.closeSync(); }
   }
   walk(base, 0);
   report.findings.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.id.localeCompare(b.id));
