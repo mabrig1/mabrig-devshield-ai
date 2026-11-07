@@ -57,6 +57,29 @@ export const rules = [
   rule('weak-md5-security', 'medium', 'cryptography', /\b(?:md5|createHash\(["']md5["']\)|hashlib\.md5)\b/i, 'MD5 is not suitable for security-sensitive hashing.', 'CWE-327', 'Use a modern cryptographic hash; for passwords use Argon2, scrypt, or bcrypt.', { strictOnly: true }),
   rule('weak-sha1-security', 'low', 'cryptography', /\b(?:sha1|createHash\(["']sha1["']\)|hashlib\.sha1)\b/i, 'SHA-1 is deprecated for security-sensitive hashing.', 'CWE-327', 'Use SHA-256+ for integrity or a password-hashing function for passwords.', { strictOnly: true }),
 
+  // Fake GitHub security-project campaign (Dr.Web, 2026-11-05).
+  // These line checks supplement the optional repository-wide pre-build preflight.
+  rule('malicious-repo-ioc-nov2026', 'critical', 'supply-chain',
+    /\b(?:muckanthropic|muckcoding|muckdeveloper)\.com\b|\bmuckduck\.duckdns\.org\b|\b130\.12\.182\.172\b/i,
+    'Code references an indicator published in the November 2026 Dr.Web fake-repository campaign.',
+    'CWE-829', 'Investigate with published vendor indicators before building or running this repository.',
+    { file: /\.(?:py|go|ps1|psm1|csproj|vbproj|fsproj|targets|props|js|mjs|cjs|ts|tsx|json|ya?ml)$/i }),
+  rule('msbuild-prebuild-powershell', 'critical', 'supply-chain',
+    /<PreBuildEvent>[^<]{0,800}\b(?:powershell|pwsh|mshta|certutil)\b/i,
+    'A Visual Studio project executes a Windows script interpreter before building.',
+    'CWE-829', 'Review or remove the build event; run the offline repository preflight for multiline variants.',
+    { file: /\.(?:csproj|vbproj|fsproj|targets|props)$/i }),
+  rule('powershell-encoded-payload', 'high', 'supply-chain',
+    /\b(?:powershell|pwsh)(?:\.exe)?\b[^\r\n]{0,180}-(?:enc|encodedcommand)\b/i,
+    'Encoded PowerShell command found in source or build configuration.',
+    'CWE-829', 'Analyze encoded content without executing it and verify the source.',
+    { file: /\.(?:ps1|psm1|cmd|bat|csproj|vbproj|fsproj|targets|props|py|go|js|mjs|cjs|ya?ml)$/i }),
+  rule('python-whitespace-obfuscation', 'high', 'supply-chain',
+    /^ {120,}[ \t]*(?:exec|eval|subprocess\.|os\.system)\b/,
+    'Python execution statement appears after unusually long leading whitespace.',
+    'CWE-506', 'Inspect hidden content in a whitespace-visible editor before running the project.',
+    { file: /\.py$/i }),
+
   // Supply chain / GitHub Actions
   rule('unpinned-action-moving', 'medium', 'supply-chain', /uses:\s*[^\s]+@(?:main|master|latest)\b/i, 'GitHub Action is pinned to a moving branch/tag.', 'CWE-829', 'Pin to a trusted full commit SHA or an immutable release reference.', { file: /\.ya?ml$/i }),
   rule('unpinned-action-tag', 'medium', 'supply-chain', /uses:\s*(?!\.\/)(?!\$\/)(?!docker:\/\/)[^\s]+@(?![a-f0-9]{40,64}\b)[^\s#]+/i, 'GitHub Action or reusable workflow reference is mutable.', 'CWE-829', 'Pin third-party Actions and reusable workflows to a reviewed full-length commit SHA.', { file: /\.github\/workflows\/.*\.ya?ml$/i }),
