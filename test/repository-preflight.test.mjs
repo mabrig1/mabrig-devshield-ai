@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scanRepository, shouldBlockPreflight } from '../src/repository-preflight.mjs';
+import { rules } from '../src/rules.mjs';
 
 const cli = fileURLToPath(new URL('../bin/repository-preflight.mjs', import.meta.url));
 function fixture(t) {
@@ -125,4 +126,13 @@ test('CLI reports JSON and exits 1 for malicious files, 2 for incomplete scan', 
   assert.equal(invalid.status, 2);
   const missing = spawnSync(process.execPath, [cli, path.join(root, 'does-not-exist')], { encoding: 'utf8' });
   assert.equal(missing.status, 2);
+});
+
+test('normal PR rule engine receives targeted fake-repository detection patterns', () => {
+  const byId = id => rules.find(r => r.id === id);
+  assert.ok(byId('malicious-repo-ioc-nov2026').re.test('const host = "muckcoding.com"'));
+  assert.ok(byId('msbuild-prebuild-powershell').re.test('<PreBuildEvent>powershell.exe -NoProfile</PreBuildEvent>'));
+  assert.ok(byId('powershell-encoded-payload').re.test('powershell.exe -enc Zg=='));
+  assert.ok(byId('python-whitespace-obfuscation').re.test(' '.repeat(150) + 'exec(payload)'));
+  assert.equal(byId('msbuild-prebuild-powershell').re.test('<PreBuildEvent>echo hello</PreBuildEvent>'), false);
 });
