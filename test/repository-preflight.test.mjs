@@ -56,6 +56,7 @@ test('detects encoded PowerShell and a remote download-to-execute pattern', t =>
 test('detects execution hidden behind long Python/Go whitespace', t => {
   const root = fixture(t);
   write(root, 'scanner.py', 'def clean():\n' + ' '.repeat(180) + 'exec(payload)\n');
+  write(root, 'secondary.py', 'print("hello")' + ' '.repeat(180) + 'exec(payload)\n');
   write(root, 'parse.go', 'package main\n' + ' '.repeat(170) + 'exec.Command("powershell", "-nop")\n');
   const r = scanRepository(root);
   assert.ok(ids(r).includes('python-whitespace-concealed-execution'));
