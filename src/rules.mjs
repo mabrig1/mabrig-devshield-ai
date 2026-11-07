@@ -75,7 +75,7 @@ export const rules = [
     'CWE-829', 'Analyze encoded content without executing it and verify the source.',
     { file: /\.(?:ps1|psm1|cmd|bat|csproj|vbproj|fsproj|targets|props|py|go|js|mjs|cjs|ya?ml)$/i }),
   rule('python-whitespace-obfuscation', 'high', 'supply-chain',
-    /^ {120,}[ \t]*(?:exec|eval|subprocess\.|os\.system)\b/,
+    /[ \t]{120,}(?:exec|eval|subprocess\.|os\.system)\b/,
     'Python execution statement appears after unusually long leading whitespace.',
     'CWE-506', 'Inspect hidden content in a whitespace-visible editor before running the project.',
     { file: /\.py$/i }),
