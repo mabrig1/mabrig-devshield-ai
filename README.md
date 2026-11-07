@@ -4,6 +4,8 @@
 
 MABRIG DevShield AI is a dependency-free GitHub Action that reviews pull-request changes for exposed secrets, injection risks, unsafe configuration, GitHub Actions supply-chain weaknesses, infrastructure-as-code mistakes, and container privilege risks.
 
+> **New: Scan before you build (Nov 2026).** Run `npm run preflight -- /path/to/untrusted-checkout --fail-on high` to examine a local GitHub project **without running its code or requiring an AI key**. Detects suspicious Visual Studio build hooks, encoded PowerShell, concealed Python/Go execution and campaign indicators. A no-finding result is **not** proof of safety; incomplete scans fail closed. See [Repository Threat Preflight](docs/REPOSITORY-PREFLIGHT-2026-11.md).
+
 **Developed and maintained by MABRIG Technologies.** For paid installation, security hardening, team rollout or managed support, contact **mabrig@mabrigkorie.org**. See [Pricing & Packaging](docs/PRICING.md) and the [Monetization Plan](docs/MONETIZATION.md).
 
 It runs without an AI key. Teams can optionally add OpenRouter for a second-pass contextual review after DevShield filters excluded paths and redacts common secret formats.
