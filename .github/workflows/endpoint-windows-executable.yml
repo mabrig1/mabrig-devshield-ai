@@ -11,6 +11,7 @@ on:
       - "test/endpoint-shield.test.mjs"
       - "test/executable-inspection.test.mjs"
       - ".github/workflows/endpoint-windows-executable.yml"
+      - "desktop/DevShieldDesktop/**"
   workflow_dispatch:
 
 permissions:
@@ -71,5 +72,38 @@ jobs:
           path: |
             dist/DevShield-Endpoint.exe
             dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Install .NET 8 SDK for native Windows desktop companion
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish portable Windows desktop app and bundle trusted scanner
+        shell: pwsh
+        run: |
+          dotnet restore desktop/DevShieldDesktop/DevShieldDesktop.csproj --runtime win-x64
+          if ($LASTEXITCODE -ne 0) { throw ".NET restore failed" }
+          dotnet publish desktop/DevShieldDesktop/DevShieldDesktop.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --property:PublishSingleFile=true --property:IncludeNativeLibrariesForSelfExtract=true --property:DebugType=None --property:DebugSymbols=false --output dist/desktop
+          if ($LASTEXITCODE -ne 0) { throw "Windows GUI publish failed" }
+          if (!(Test-Path dist/desktop/DevShield-Desktop.exe)) { throw "GUI executable missing" }
+          Copy-Item dist/DevShield-Endpoint.exe dist/desktop/DevShield-Endpoint.exe
+          Copy-Item desktop/DevShieldDesktop/README.md dist/desktop/README.md
+          $gui = (Resolve-Path "dist/desktop/DevShield-Desktop.exe").Path
+          & $gui --version
+          if ($LASTEXITCODE -ne 0) { throw "GUI executable startup smoke failed" }
+          $files = @("DevShield-Desktop.exe", "DevShield-Endpoint.exe")
+          $sums = foreach ($name in $files) {
+            $hash = (Get-FileHash -Path ("dist/desktop/" + $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $name"
+          }
+          $sums | Set-Content -Path dist/desktop/SHA256SUMS.txt -Encoding ascii
+          Compress-Archive -Path dist/desktop/* -DestinationPath dist/DevShield-Desktop-Windows-x64-UNSIGNED.zip -CompressionLevel Optimal
+          if (!(Test-Path dist/DevShield-Desktop-Windows-x64-UNSIGNED.zip)) { throw "Desktop package missing" }
+      - name: Upload unsigned Windows desktop graphical application for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevShield-Desktop-Windows-x64-UNSIGNED
+          path: dist/DevShield-Desktop-Windows-x64-UNSIGNED.zip
           if-no-files-found: error
           retention-days: 7
