@@ -12,7 +12,7 @@ internal static class Program
     {
         if (args.Length == 1 && args[0] == "--version")
         {
-            Console.WriteLine("DevShield Desktop 0.1.0 — unsigned experimental build");
+            Console.WriteLine("DevShield Desktop 0.2.0 — unsigned experimental build");
             return;
         }
 
