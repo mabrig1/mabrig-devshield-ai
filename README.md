@@ -798,3 +798,7 @@ An opt-in [CodeQL source-to-sink evidence importer and tenant-scoped organizatio
 ## DevShield website: Cloudflare deployment candidate
 
 The public homepage, browser-local indicator preview, and Cloudflare build configuration are proposed in [Cloudflare build recovery](docs/CLOUDFLARE-BUILD-RECOVERY.md). Both a repository-root `wrangler.jsonc` and a `cloudflare-deploy/wrangler.json` are provided for the corresponding Cloudflare build root. The website does not expose paid or hosted code-scanning APIs, and editing the repository does not automatically update an already deployed Worker. Review the current Worker and test a preview before any production promotion.
+
+## Opt-in local scanning and commercial API bridge (experimental)
+
+The [Scan API and credit metering guide](docs/SCAN-API-CREDITS.md) documents the offline local scanner, authenticated loopback API, and **explicit opt-in** upload of source-free, path-free structured findings to a separately provisioned Cloudflare/D1 commercial API. The live DevShield website does **not** provide paid cloud scanning or tokens. No customer source is uploaded by the CLI unless the operator requests metadata-only upload.

@@ -12,7 +12,9 @@
     "devshield-api-trust": "bin/api-trust.mjs",
     "devshield-waap-policy": "bin/waap-policy.mjs",
     "devshield-preflight": "bin/repository-preflight.mjs",
-    "devshield-reachability": "bin/reachability.mjs"
+    "devshield-reachability": "bin/reachability.mjs",
+    "devshield-local-api": "bin/local-scan-api.mjs",
+    "devshield-cloud-scan": "bin/cloud-scan.mjs"
   },
   "scripts": {
     "test": "bash test/smoke.sh",
@@ -28,7 +30,9 @@
     "waap:policy": "node bin/waap-policy.mjs",
     "preflight": "node bin/repository-preflight.mjs",
     "reachability": "node bin/reachability.mjs",
-    "build": "node --check cloudflare-deploy/src/index.mjs && node --check cloudflare-deploy/public/app.js && node --test cloudflare-deploy/test/*.test.mjs"
+    "build": "node --check cloudflare-deploy/src/index.mjs && node --check cloudflare-deploy/public/app.js && node --test cloudflare-deploy/test/*.test.mjs",
+    "local-api": "node bin/local-scan-api.mjs",
+    "cloud-scan": "node bin/cloud-scan.mjs"
   },
   "engines": {
     "node": ">=20"
