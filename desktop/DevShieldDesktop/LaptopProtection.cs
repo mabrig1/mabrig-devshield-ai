@@ -22,10 +22,10 @@ internal static class LaptopProtection
         "try{$a=Get-MpComputerStatus -ErrorAction Stop}catch{};" +
         "try{$f=@(Get-NetFirewallProfile -ErrorAction Stop|Select-Object Name,Enabled)}catch{};" +
         "[pscustomobject]@{" +
-        "AntivirusEnabled=if($null -ne $a){$a.AntivirusEnabled}else{$null};" +
-        "RealtimeProtectionEnabled=if($null -ne $a){$a.RealTimeProtectionEnabled}else{$null};" +
-        "AntimalwareServiceEnabled=if($null -ne $a){$a.AMServiceEnabled}else{$null};" +
-        "SignatureLastUpdated=if($null -ne $a){$a.AntivirusSignatureLastUpdated}else{$null};" +
+        "AntivirusEnabled=$a.AntivirusEnabled;" +
+        "RealtimeProtectionEnabled=$a.RealTimeProtectionEnabled;" +
+        "AntimalwareServiceEnabled=$a.AMServiceEnabled;" +
+        "SignatureLastUpdated=$a.AntivirusSignatureLastUpdated;" +
         "Firewalls=@($f)" +
         "}|ConvertTo-Json -Compress -Depth 3";
 
