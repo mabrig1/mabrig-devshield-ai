@@ -151,9 +151,11 @@ internal sealed partial class ScannerForm
                     var item = new ListViewItem("MALWARE");
                     item.SubItems.Add(detection.Signature);
                     item.SubItems.Add(detection.FilePath);
-                    item.SubItems.Add("Official ClamAV signature match. Review and select Quarantine if appropriate.");
+                    item.SubItems.Add(ClamScanSafety.IsQuarantinableSignature(detection.Signature)
+                        ? "ClamAV malware signature; review and quarantine manually only if appropriate."
+                        : "Coverage/test/PUA/heuristic alert: NOT a confirmed malware signature; quarantine disabled.");
                     item.BackColor = Color.FromArgb(255, 227, 226);
-                    item.Tag = detection;
+                    item.Tag = ClamScanSafety.IsQuarantinableSignature(detection.Signature) ? detection : null;
                     _findings.Items.Add(item);
                 }
             }
