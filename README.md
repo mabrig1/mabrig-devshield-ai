@@ -802,3 +802,7 @@ The public homepage, browser-local indicator preview, and Cloudflare build confi
 ## Offline developer Endpoint Threat Guard (experimental)
 
 Use `npm run endpoint -- --path ./untrusted-checkout --fail-on high` to inspect source, suspicious package lifecycle hooks, potential secrets and ZIP archive directory metadata **without running the target code or uploading files**. Optional `--watch-seconds 30` repeats read-only scans (polling; not OS realtime protection). See [Endpoint Threat Guard](docs/ENDPOINT-THREAT-GUARD.md). This is **not** a full antivirus, EDR, binary-malware scanner or quarantine product.
+
+### Windows executable inspection and portable scanner build (experimental)
+
+Endpoint Guard now statically inspects bounded Windows PE32/PE32+ .exe/.dll binaries for suspicious imports, writable-executable sections, packed-code indicators, and embedded encoded PowerShell strings, **without executing them**. See [Endpoint Threat Guard](docs/ENDPOINT-THREAT-GUARD.md) for limits and false-positive caveats. The new [Windows EXE build workflow](.github/workflows/endpoint-windows-executable.yml) produces an **unsigned Windows x64 standalone CLI and SHA-256 checksum** for review; it is not a commercial antivirus installer or proof of safety.
