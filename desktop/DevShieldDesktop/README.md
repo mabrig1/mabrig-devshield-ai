@@ -58,3 +58,22 @@ Quarantine intentionally refuses system directories, source locations outside us
 - Neo23x0 signature-base: https://github.com/Neo23x0/signature-base — YARA/IOC intelligence with a separate Detection Rule License (DRL 1.1); **not mirrored or bundled**, and commercial reuse needs license review.
 
 No third-party rules from GitHub are automatically trusted, downloaded, or enforced. ClamAV's normal vendor distribution manages database authenticity and compatibility. The product never promises that a 0-detection result means a computer is virus-free.
+
+## Security hardening: ClamAV scan completeness and signature safety
+
+Official ClamAV documentation warns that exceeding maximum scan limits may skip files and still report a clean result. The hardened app instead:
+
+- Preflights targets before invoking ClamAV. Limits are 100 MiB per file, 1 GiB aggregate size, 2500 visited paths, and 30 directory levels. Unsupported, symlinked, oversized, unreadable or offline files cause INCOMPLETE, never clean.
+- Requests explicit alert-exceeds-max and encrypted-container signals; matches named Heuristics.* alerts as REVIEW/INCOMPLETE, not confirmed malware.
+- Requires a coherent ClamAV summary, sane exit code and sufficient scanned-file count. Warnings, errors, truncated output and skipped-file indications prevent a clean verdict.
+- Checks the official daily signature file modification date conservatively (maximum 7 days) and refuses scanning when it is missing or stale. File timestamps are NOT cryptographic proof of signature authenticity or currentness.
+- Prevents a manually modified FreshClam config from silently redirecting the signature mirror.
+- Allows only eligible malware signature matches to unlock user-approved reversible quarantine. EICAR test, PUA, Heuristics.Limits.Exceeded, and other Heuristics.* detections cannot be quarantined by DevShield.
+- Adds a synthetic parser/coverage/quarantine self-test to the Windows build. No malware or EICAR sample is downloaded or executed.
+
+Limitations: ClamAV file content can change between preflight and scan; deeply nested archives may exceed internal processing limits, dynamic malware is not covered, and application-level quarantine has no anti-tamper Windows service. Full OS antivirus remains necessary. ClamAV itself is an external installation that requires separate independent authenticity checks.
+
+Official references:
+- https://docs.clamav.net/manual/Usage/Scanning.html
+- https://github.com/Cisco-Talos/clamav/blob/main/docs/man/clamscan.1.in
+- https://docs.clamav.net/manual/Usage/SignatureManagement.html
