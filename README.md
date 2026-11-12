@@ -794,3 +794,7 @@ See [docs/PRICING.md](docs/PRICING.md), [SUPPORT.md](SUPPORT.md), [PRIVACY.md](P
 ## Experimental reachability evidence and organization policy foundations
 
 An opt-in [CodeQL source-to-sink evidence importer and tenant-scoped organization policy API](docs/REACHABILITY-ORG-POLICY-FOUNDATIONS.md) are under review. Neither is a native taint solver or a deployed GitHub App; existing scan and merge gates are unchanged.
+
+## DevShield website: Cloudflare deployment candidate
+
+The public homepage, browser-local indicator preview, and Cloudflare build configuration are proposed in [Cloudflare build recovery](docs/CLOUDFLARE-BUILD-RECOVERY.md). Both a repository-root `wrangler.jsonc` and a `cloudflare-deploy/wrangler.json` are provided for the corresponding Cloudflare build root. The website does not expose paid or hosted code-scanning APIs, and editing the repository does not automatically update an already deployed Worker. Review the current Worker and test a preview before any production promotion.
