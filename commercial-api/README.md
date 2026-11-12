@@ -85,3 +85,7 @@ The ingestion API is intentionally separate from `devshield.mabrigkorie.org` (fu
 ### Contact
 
 MABRIG Technologies — mabrig@mabrigkorie.org
+
+## Experimental Scan API and scan credits
+
+See [Scan API and credit metering](../docs/SCAN-API-CREDITS.md). The additive SQL migration, metering configuration and local scan server are un-deployed review-stage foundations; there is no live billing. Cloud endpoints ingest validated structured reports only, not source or remote execution requests.
