@@ -5,14 +5,16 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { detectRepositoryThreats } from './repository-preflight.mjs';
 import { rules } from './rules.mjs';
+import { inspectPortableExecutable } from './executable-inspection.mjs';
 
 const IGNORED = new Set(['.git', 'node_modules', '.venv', 'venv', 'vendor', '.next', '.nuxt', 'coverage']);
 const TEXT = /\.(?:js|jsx|mjs|cjs|ts|tsx|json|ya?ml|sh|ps1|psm1|psd1|py|go|cmd|bat|suo|csproj|vbproj|fsproj|targets|props|xml|tf|env|txt|md)$/i;
 const ARCHIVE = /\.(?:zip|jar|vsix|nupkg|whl)$/i;
-const EXECUTABLE = /\.(?:exe|dll|msi|dmg|appimage|bin)$/i;
+const EXECUTABLE = /\.(?:exe|dll|sys|scr|ocx|cpl|msi|dmg|appimage|bin|com)$/i;
+const PE_EXECUTABLE = /\.(?:exe|dll|sys|scr|ocx|cpl)$/i;
 const MAX_FILES = 2000;
-const MAX_SINGLE = 2 * 1024 * 1024;
-const MAX_TOTAL = 48 * 1024 * 1024;
+const MAX_SINGLE = 16 * 1024 * 1024;
+const MAX_TOTAL = 96 * 1024 * 1024;
 const MAX_DEPTH = 32;
 const SEVERITY = { low: 1, medium: 2, high: 3, critical: 4 };
 
@@ -144,7 +146,8 @@ export function scanEndpoint(target, limits = {}) {
     schemaVersion: 1, engine: 'devshield-endpoint-threat-guard',
     profile: 'developer-artifact-heuristic', mode: 'offline-read-only',
     complete: true, filesInspected: 0, bytesInspected: 0, archivesInspected: 0,
-    unsupportedExecutables: 0, archiveExecutableEntries: 0,
+    unsupportedExecutables: 0, executablesInspected: 0, executableDetails: [],
+    archiveExecutableEntries: 0,
     skippedDirectories: [], errors: [], findings: [], hashes: []
   };
   let visits = 0;
@@ -175,9 +178,27 @@ export function scanEndpoint(target, limits = {}) {
         report.archiveExecutableEntries += archive.executableEntries;
         report.findings.push(...archive.findings);
       } catch { error(rel, 'archive-metadata-unreadable-or-unsupported'); }
+    } else if (PE_EXECUTABLE.test(rel) || (EXECUTABLE.test(rel) && bytes.length >= 2 && bytes.toString('ascii', 0, 2) === 'MZ')) {
+      try {
+        const parsed = inspectPortableExecutable(bytes);
+        report.executablesInspected++;
+        if (report.executableDetails.length < 100) {
+          report.executableDetails.push({
+            file: rel, format: parsed.format, machine: parsed.machine,
+            sections: parsed.sectionCount, imageSize: parsed.imageSize,
+            importedFunctions: parsed.importFunctionCount,
+            suspiciousImportNames: parsed.suspiciousImportNames
+          });
+        }
+        report.findings.push(...parsed.findings.map(f =>
+          finding(f.rule, f.severity, rel, 1, f.message, f.remediation, f.category)));
+      } catch {
+        report.unsupportedExecutables++;
+        error(rel, 'invalid-or-unsupported-pe-executable');
+      }
     } else if (EXECUTABLE.test(rel)) {
       report.unsupportedExecutables++;
-      error(rel, 'binary-executable-not-analyzed');
+      error(rel, 'unsupported-binary-format');
     } else if (TEXT.test(rel)) {
       if (bytes.includes(0) && !/\.suo$/i.test(rel)) { error(rel, 'binary-text-input'); return; }
       const text = /\.suo$/i.test(rel)
@@ -218,6 +239,8 @@ export function scanEndpoint(target, limits = {}) {
       (SEVERITY[f.severity] || 0) > (SEVERITY[best] || 0) ? f.severity : best, 'none'),
     status: report.complete ? (report.findings.length ? 'suspicious' : 'no-indicators-observed') : 'incomplete',
     zeroFindingsProveSafe: false,
+    executableInspection: 'PE-header-imports-sections-strings-static-only',
+    detectsArbitraryMalware: false, verifiesDigitalSignatures: false,
     usesVirusSignatures: false, realTimeBlocking: false, quarantinesFiles: false
   };
   return report;
