@@ -63,6 +63,29 @@ Each result gives rule IDs, complete/incomplete, bytes, and median milliseconds 
 
 To conduct a fair antivirus head-to-head, use an authorized isolated lab with signed provenance of samples, benign/known-malicious holdout corpus, independent ground truth, exact engine/definition versions, comparable scan scope, hardware/CPU/IO controls, repeat runs, miss/false-alert review and retention policy. EICAR is a safe interoperability smoke test only, NOT an indicator of real-world detection efficacy. Do not disable Windows Defender or execute real malware on personal machines.
 
+## Measured CI synthetic regression, November 12, 2026
+
+Source workflow: https://github.com/mabrig1/mabrig-devshield-ai/actions/runs/43256930518 (DevShield CI, smoke-test). The run was executed on linux/x64, Node v24.22.2, at 16:17 UTC.
+
+**Result: 10/10 expected cases passed: 7 deliberately selected static indicators, 2 benign controls, 1 deliberately malformed PE refused with incomplete coverage.** The test run showed no missed expected rules among these fixtures. This is not a real-malware test or statistically representative accuracy score.
+
+Selected median single-file local scan times (3 repeats on that runner):
+
+| Inert fixture | Expected/observed | Median milliseconds |
+| --- | --- | ---: |
+| Ordinary JS (benign) | No indicators, correct | 0.499 |
+| Ordinary npm hook (benign) | No indicators, correct | 0.247 |
+| Encoded PowerShell | Named indicator reported | 0.119 |
+| Download-to-execute | Named indicator reported | 0.075 |
+| Suspicious npm lifecycle hook | Named indicator reported | 0.047 |
+| Synthetic placeholder GitHub token | Named indicator reported | 0.038 |
+| ZIP path traversal | Metadata warning reported | 0.130 |
+| ZIP anomalous expansion ratio | Metadata warning reported | 0.073 |
+| Synthetic PE32 suspicious imports | Two heuristic warnings reported | 0.350 |
+| Unsupported malformed PE | Incomplete scan, not clean | 0.048 |
+
+**Do not use these millisecond figures for a commercial speed claim.** These files are tiny synthetic fixtures that are mainly measuring function invocation and file-open overhead. Other tools were not run on the same inputs. Running on a Windows machine with real antivirus and larger data may yield very different results.
+
 ## Prioritized improvement opportunities
 
 1. **P0: Safer verdicts and containment:** mark stale/missing definitions, timeout, oversized/skipped files, malformed archive, driver/permission errors, and truncated scans INCOMPLETE. Avoid false-clean verdicts. Improve quarantine race resistance and directory ACLs; signed releases and publisher verification.
