@@ -12,13 +12,19 @@ internal static class Program
     {
         if (args.Length == 1 && args[0] == "--version")
         {
-            Console.WriteLine("DevShield Desktop 0.2.0 — unsigned experimental build");
+            Console.WriteLine("DevShield Desktop 0.3.0 — unsigned experimental build");
             return;
         }
 
         if (args.Length == 1 && args[0] == "--self-test-malware")
         {
             Environment.ExitCode = ClamAvIntegration.SelfTest() && ClamScanSafety.SelfTest() && QuarantineStore.SelfTest() ? 0 : 1;
+            return;
+        }
+
+        if (args.Length == 1 && args[0] == "--self-test-network")
+        {
+            Environment.ExitCode = NetworkTelemetry.SelfTest() && LaptopProtection.SelfTest() ? 0 : 1;
             return;
         }
 
@@ -40,6 +46,8 @@ internal sealed partial class ScannerForm : Form
     private readonly Button _cancel;
     private readonly Button _export;
     private readonly Button _watch;
+    private readonly Button _network;
+    private NetworkMonitorForm? _networkMonitor;
     private readonly System.Windows.Forms.Timer _watchTimer = new() { Interval = 60_000 };
     private CancellationTokenSource? _scanCancellation;
     private string? _lastReport;
@@ -133,10 +141,11 @@ internal sealed partial class ScannerForm : Form
         _cancel = MakeButton("Cancel", false);
         _export = MakeButton("Export JSON", false);
         _watch = MakeButton("Start 60s polling", false);
+        _network = MakeButton("Network & laptop security", true);
         _cancel.Enabled = false;
         _scan.Enabled = false;
         _export.Enabled = false;
-        foreach (var button in new[] { _chooseFile, _chooseFolder, _downloads, _scan, _cancel, _export, _watch })
+        foreach (var button in new[] { _chooseFile, _chooseFolder, _downloads, _scan, _cancel, _export, _watch, _network })
             actions.Controls.Add(button);
         InitializeMalwareControls(actions);
         selection.Controls.Add(actions, 0, 1);
@@ -185,9 +194,10 @@ internal sealed partial class ScannerForm : Form
         _cancel.Click += (_, _) => _scanCancellation?.Cancel();
         _export.Click += (_, _) => ExportReport();
         _watch.Click += (_, _) => ToggleWatch();
+        _network.Click += (_, _) => OpenNetworkDashboard();
         _watchTimer.Tick += async (_, _) => { if (!_running) await ScanOnceAsync(); };
         _findings.SelectedIndexChanged += (_, _) => UpdateQuarantineSelection();
-        FormClosing += (_, _) => { _watchTimer.Stop(); _scanCancellation?.Cancel(); };
+        FormClosing += (_, _) => { _watchTimer.Stop(); _scanCancellation?.Cancel(); _networkMonitor?.Close(); };
     }
 
     private static Button MakeButton(string caption, bool primary) => new()
@@ -232,6 +242,18 @@ internal sealed partial class ScannerForm : Form
         var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         if (Directory.Exists(downloads)) SetTarget(downloads);
         else MessageBox.Show(this, "Downloads folder was not found. Please select a folder manually.", "DevShield", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void OpenNetworkDashboard()
+    {
+        if (_networkMonitor is { IsDisposed: false })
+        {
+            _networkMonitor.Activate();
+            return;
+        }
+        _networkMonitor = new NetworkMonitorForm();
+        _networkMonitor.FormClosed += (_, _) => _networkMonitor = null;
+        _networkMonitor.Show(this);
     }
 
     private void ToggleWatch()
