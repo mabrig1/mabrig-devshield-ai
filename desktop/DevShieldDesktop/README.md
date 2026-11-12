@@ -77,3 +77,32 @@ Official references:
 - https://docs.clamav.net/manual/Usage/Scanning.html
 - https://github.com/Cisco-Talos/clamav/blob/main/docs/man/clamscan.1.in
 - https://docs.clamav.net/manual/Usage/SignatureManagement.html
+
+## v0.3 — Laptop and network security monitor (Windows only)
+
+The new **Network & laptop security** button opens a local-first, non-blocking monitor with:
+
+- Network adapter inventory: Wi-Fi, Ethernet, VPN and virtual adapters, online status, link speed, assigned IP addresses, gateways and DNS servers.
+- Per-adapter received/sent traffic estimated from Windows interface counters, sampled at 5-second intervals **only when explicitly enabled** while the monitor window remains open.
+- Passive TCP connection list with local and remote IP/port, TCP state and simple local vs external/routed classification.
+- TCP and UDP ports bound on this computer; non-loopback listeners highlighted for review. Such listeners are common and are NOT automatic evidence of a hacker.
+- Optional, explicit local Windows Security check. It queries Defender real-time antivirus and Windows Firewall profiles using read-only first-party cmdlets. Unavailable values are UNKNOWN, not reported as protected or infected.
+- Links to Windows Security and Windows Update plus a practical vibe-coding security checklist (MFA, safe IDE extensions, updates, backups, untrusted repo preflight and firewall).
+- Explicit user-approved export of a JSON snapshot **to a local file**. Export can include local and remote IPs; review before sharing.
+
+Privacy and system boundaries: monitoring makes NO outbound socket connections, network probes, router scans, packet capture, packet injection, DNS queries, secret extraction, process attribution, security settings changes, cloud requests, R2 writes, or persistent Windows service installation. It can show local network **interfaces** and local PC connections, not all devices or traffic on the router. The optional PowerShell security-status command runs a fixed read-only query from the system directory; it accepts no user script.
+
+Network snapshot data is volatile while the window is open. Sampling stops when the user closes the network monitor. Windows connection counts and interface counters are snapshots, not guaranteed packet-accurate audit trails. External IP traffic is normal during browsing, coding, package installs, GitHub and Cloudflare use; classifications are NOT threat verdicts.
+
+### Windows build verification
+
+Run the optional pure self-tests on a trusted Windows machine:
+
+    DevShield-Desktop.exe --version
+    DevShield-Desktop.exe --self-test-network
+
+The Windows GitHub Actions workflow runs both startup verification and the network/security parser smoke check before publishing its **unsigned**, portable ZIP. No network scan or sensitive information from CI is sent elsewhere.
+
+### Recommended configuration for safer vibe coding
+
+Keep Microsoft Defender Antivirus real-time protection and Windows Firewall ON, keep Windows Update enabled, turn on device encryption and multifactor authentication where available, use least-privilege accounts, rotate leaked secrets immediately, and review scripts from cloned repositories before installing their dependencies. These are Windows controls; DevShield does not automatically enable or enforce them.
