@@ -325,7 +325,7 @@ export async function handleRequest(req, env) {
   if (path === '/v1/credits' && req.method === 'GET') {
     return getCredits(env, await authenticate(req, env, 'credits:read'));
   }
-  const reportType = new RegExp('^/v1/scan-reports/([a-z-]+)
+  const reportType = /^\/v1\/scan-reports\/([a-z-]+)$/.exec(path);
   if (reportType && req.method === 'POST') {
     if (!SCAN_TYPES.has(reportType[1]) || reportType[1] === 'github-action') {
       return json({ error: 'not_found' }, 404);
