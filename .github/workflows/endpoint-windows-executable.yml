@@ -46,8 +46,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Compiled EXE --help failed" }
           $fixture = Join-Path $env:RUNNER_TEMP "devshield-fixture.ps1"
           Set-Content -Path $fixture -Value 'powershell.exe -EncodedCommand TEST' -Encoding utf8
+          # Exit 1 is the expected security finding, not a workflow error.
+          $PSNativeCommandUseErrorActionPreference = $false
           $output = & $exe --path $fixture --fail-on high --format json
           $code = $LASTEXITCODE
+          $global:LASTEXITCODE = 0
           if ($code -ne 1) { throw "Expected severity gate exit 1 but got $code" }
           $report = ($output -join [Environment]::NewLine) | ConvertFrom-Json
           if ($report.complete -ne $true) { throw "Scanner did not fully inspect harmless fixture" }
