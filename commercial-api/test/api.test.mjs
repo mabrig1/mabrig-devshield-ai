@@ -134,3 +134,61 @@ test('rejects malformed content, missing idempotency and inactive credentials', 
   resp = await send(env, '/v1/usage', a);
   assert.equal(resp.status, 401);
 });
+
+
+test('typed report API meters atomic scan credits and excludes duplicates', async () => {
+  const { env, a, b, db } = tenantSetup({ limit: 10 });
+  db.raw.exec(readFileSync(join(here, '../scan-credit-migration.sql'), 'utf8'));
+  db.raw.prepare("UPDATE api_keys SET scopes = 'scans:read scans:write credits:read' WHERE id = 'a'").run();
+  db.raw.prepare("UPDATE api_keys SET scopes = 'scans:read credits:read' WHERE id = 'b'").run();
+  db.raw.prepare('INSERT INTO scan_credit_grants (id, tenant_id, amount, reference, issued_by) VALUES (?, ?, ?, ?, ?)')
+    .run('grant-a1', 'ta', 2, 'operator-test-grant', 'test-operator');
+  env.CREDIT_METERING_REQUIRED = 'true';
+  const caps = await send(env, '/v1/capabilities', a);
+  assert.equal((await caps.json()).cloudExecution, false);
+  let credits = await send(env, '/v1/credits', a);
+  assert.equal((await credits.json()).remaining, 2);
+  const type = '/v1/scan-reports/preflight';
+  const first = await send(env, type, a, 'POST', fixture('report-one'));
+  assert.equal(first.status, 201);
+  assert.equal((await first.json()).status, 'created');
+  const again = await send(env, type, a, 'POST', fixture('report-one'));
+  assert.equal(again.status, 200);
+  const second = await send(env, '/v1/scan-reports/staged-diff', a, 'POST', fixture('report-two'));
+  assert.equal(second.status, 201);
+  credits = await send(env, '/v1/credits', a);
+  assert.equal((await credits.json()).remaining, 0);
+  const exhausted = await send(env, type, a, 'POST', fixture('report-three'));
+  assert.equal(exhausted.status, 429);
+  assert.equal((await exhausted.json()).error, 'scan_credits_exhausted');
+  const debitRows = db.raw.prepare('SELECT scan_id FROM scan_credit_debits WHERE tenant_id = ?').all('ta');
+  assert.equal(debitRows.length, 2);
+  const stored = db.raw.prepare('SELECT payload_json FROM scans WHERE tenant_id = ? ORDER BY id').all('ta');
+  assert.deepEqual(new Set(stored.map(x => JSON.parse(x.payload_json).scanType)), new Set(['preflight', 'staged-diff']));
+  const other = await send(env, '/v1/credits', b);
+  assert.equal((await other.json()).remaining, null, 'other tenants cannot see credited balance');
+  const refused = await send(env, '/v1/scan-reports/unknown-mode', a, 'POST', fixture('different'));
+  assert.equal(refused.status, 404);
+  const mismatch = fixture('mismatch');
+  mismatch.scanType = 'full';
+  const mismatchRes = await send(env, type, a, 'POST', mismatch);
+  assert.equal(mismatchRes.status, 422);
+});
+
+test('optional per-key API request limit does not charge blocked attempts', async () => {
+  const { env, a, db } = tenantSetup({ limit: 10 });
+  db.raw.exec(readFileSync(join(here, '../scan-credit-migration.sql'), 'utf8'));
+  db.raw.prepare('INSERT INTO scan_credit_grants (id, tenant_id, amount, reference, issued_by) VALUES (?, ?, ?, ?, ?)')
+    .run('grant-a2', 'ta', 4, 'operator-test-grant', 'test-operator');
+  env.CREDIT_METERING_REQUIRED = 'true';
+  env.ENFORCE_API_KEY_RATE_LIMIT = 'true';
+  env.SCAN_REQUESTS_PER_MINUTE = '1';
+  const one = await send(env, '/v1/scan-reports/full', a, 'POST', fixture('first'));
+  assert.equal(one.status, 201);
+  const duplicate = await send(env, '/v1/scan-reports/full', a, 'POST', fixture('first'));
+  assert.equal(duplicate.status, 200);
+  const second = await send(env, '/v1/scan-reports/full', a, 'POST', fixture('second'));
+  assert.equal(second.status, 429);
+  assert.equal((await second.json()).error, 'rate_limited');
+  assert.equal(db.raw.prepare("SELECT remaining FROM scan_credit_wallets WHERE tenant_id='ta'").get().remaining, 3);
+});

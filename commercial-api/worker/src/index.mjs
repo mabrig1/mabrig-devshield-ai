@@ -3,6 +3,8 @@
 const MAX_BODY_BYTES = 262144;
 const MAX_FINDINGS = 250;
 const MAX_PAGE_SIZE = 50;
+const SCAN_TYPES = new Set(['github-action', 'full', 'staged-diff', 'preflight',
+  'dependency-inventory', 'api-agent-trust', 'legal-compliance', 'waap-policy', 'security-graph']);
 const ALLOWED_SEVERITIES = new Set(['critical', 'high', 'medium', 'low', 'info']);
 const ALLOWED_RISKS = new Set(['critical', 'high', 'medium', 'low']);
 const SAFE_REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -106,9 +108,14 @@ export function normalizeScan(input) {
   const headSha = optionalString(input.revision?.headSha, 80, 'revision.headSha');
   const runId = optionalString(input.delivery?.runId, 80, 'delivery.runId');
   const runAttempt = optionalString(input.delivery?.runAttempt, 20, 'delivery.runAttempt');
+  const scanType = input.scanType == null ? 'github-action' : input.scanType;
+  if (typeof scanType !== 'string' || !SCAN_TYPES.has(scanType)) {
+    bad(422, 'invalid_payload', 'Unsupported scanType');
+  }
   const findings = input.findings.map(sanitizeFinding);
   return {
     schemaVersion: 1,
+    scanType,
     toolVersion: optionalString(input.tool?.version, 32, 'tool.version'),
     repository: {
       fullName,
@@ -138,7 +145,7 @@ async function authenticate(req, env, permission) {
   if (!env.DB) bad(503, 'unavailable', 'Database not configured');
   const keyHash = await hash(bearer(req));
   const record = await env.DB.prepare(`
-    SELECT k.tenant_id, k.scopes, t.daily_scan_limit
+    SELECT k.id AS key_id, k.tenant_id, k.scopes, t.daily_scan_limit
     FROM api_keys k JOIN tenants t ON t.id = k.tenant_id
     WHERE k.key_hash = ? AND k.status = 'active' AND t.status = 'active'
       AND (k.expires_at IS NULL OR k.expires_at > CURRENT_TIMESTAMP)
@@ -198,16 +205,45 @@ async function getExisting(db, tenantId, idempotencyKey) {
     .bind(tenantId, idempotencyKey).first();
 }
 
-async function ingest(req, env, principal) {
+async function ingest(req, env, principal, routeType = null) {
   const payload = normalizeScan(await readBoundedJson(req));
+  if (routeType) {
+    if (payload.scanType !== 'github-action' && payload.scanType !== routeType) {
+      bad(422, 'invalid_payload', 'scanType does not match endpoint');
+    }
+    payload.scanType = routeType;
+  }
   const key = getIdempotencyKey(req, payload);
   const existing = await getExisting(env.DB, principal.tenant_id, key);
   if (existing) return json({ id: existing.id, status: 'duplicate' }, 200);
+  if (env.CREDIT_METERING_REQUIRED === 'true') {
+    const wallet = await env.DB.prepare('SELECT remaining FROM scan_credit_wallets WHERE tenant_id = ?')
+      .bind(principal.tenant_id).first();
+    if (!wallet) bad(403, 'scan_credits_not_configured', 'Scan credits not enabled for this tenant');
+  }
+  // Optional, tenant-key-scoped 60-second request window, after idempotent replay check.
+  // Enable only after the additive migration has been applied.
+  if (env.ENFORCE_API_KEY_RATE_LIMIT === 'true') {
+    const max = Number(env.SCAN_REQUESTS_PER_MINUTE || 30);
+    if (!Number.isSafeInteger(max) || max < 1 || max > 120) {
+      bad(503, 'invalid_configuration', 'Scan rate limit not configured');
+    }
+    const window = new Date().toISOString().slice(0, 16);
+    const allowed = await env.DB.prepare(`
+      INSERT INTO api_key_request_buckets (key_id, minute_bucket, attempts)
+      VALUES (?, ?, 1) ON CONFLICT (key_id, minute_bucket)
+      DO UPDATE SET attempts = attempts + 1 WHERE attempts < ?
+      RETURNING attempts
+    `).bind(principal.key_id, window, max).first();
+    if (!allowed) bad(429, 'rate_limited', 'Scan request rate limit reached');
+  }
   const id = crypto.randomUUID();
   const day = new Date().toISOString().slice(0, 10);
   const limit = Number(principal.daily_scan_limit);
   if (!Number.isSafeInteger(limit) || limit < 1) bad(403, 'subscription_inactive', 'No scan allowance');
-  const result = await env.DB.prepare(`
+  let result;
+  try {
+    result = await env.DB.prepare(`
     INSERT INTO scans (id, tenant_id, idempotency_key, repository, head_sha,
                        risk_level, risk_score, findings_count, scan_day, payload_json)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -216,6 +252,12 @@ async function ingest(req, env, principal) {
   `).bind(id, principal.tenant_id, key, payload.repository.fullName, payload.revision.headSha,
     payload.summary.riskLevel, payload.summary.riskScore, payload.summary.findings,
     day, JSON.stringify(payload), principal.tenant_id, day, limit).first();
+  } catch (error) {
+    if (String(error?.message || '').includes('scan_credit_exhausted')) {
+      bad(429, 'scan_credits_exhausted', 'Scan credits exhausted');
+    }
+    throw error;
+  }
   if (!result) {
     const duplicate = await getExisting(env.DB, principal.tenant_id, key);
     if (duplicate) return json({ id: duplicate.id, status: 'duplicate' });
@@ -253,6 +295,20 @@ async function getUsage(env, principal) {
   return json({ date: day, scansUsed: Number(usage?.used || 0), dailyScanLimit: Number(principal.daily_scan_limit) });
 }
 
+
+async function getCredits(env, principal) {
+  const wallet = await env.DB.prepare('SELECT remaining, grants_total, updated_at FROM scan_credit_wallets WHERE tenant_id = ?')
+    .bind(principal.tenant_id).first();
+  const today = new Date().toISOString().slice(0, 10);
+  const use = await env.DB.prepare('SELECT COUNT(*) AS used FROM scans WHERE tenant_id = ? AND scan_day = ?')
+    .bind(principal.tenant_id, today).first();
+  return json({ metering: wallet ? 'prepaid-scan-credits' : 'daily-quota-only',
+    remaining: wallet ? Number(wallet.remaining) : null,
+    grantsTotal: wallet ? Number(wallet.grants_total) : null,
+    dailyScansUsed: Number(use?.used || 0), dailyScanLimit: Number(principal.daily_scan_limit),
+    updatedAt: wallet?.updated_at || null });
+}
+
 export async function handleRequest(req, env) {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/api(?=\/v1\/)/, '');
@@ -260,6 +316,22 @@ export async function handleRequest(req, env) {
     return json({ ok: true, component: 'DevShield Commercial API', version: '0.1.0' });
   }
   if (!path.startsWith('/v1/')) return json({ error: 'not_found' }, 404);
+  if (path === '/v1/capabilities' && req.method === 'GET') {
+    await authenticate(req, env, 'scans:read');
+    return json({ cloudExecution: false, sourceUploadsAccepted: false,
+      role: 'privacy-safe structured report ingestion', scanTypes: [...SCAN_TYPES],
+      localApi: 'devshield-local-api', formats: ['JSON', 'SARIF (local only)'] });
+  }
+  if (path === '/v1/credits' && req.method === 'GET') {
+    return getCredits(env, await authenticate(req, env, 'credits:read'));
+  }
+  const reportType = /^\/v1\/scan-reports\/([a-z-]+)$/.exec(path);
+  if (reportType && req.method === 'POST') {
+    if (!SCAN_TYPES.has(reportType[1]) || reportType[1] === 'github-action') {
+      return json({ error: 'not_found' }, 404);
+    }
+    return ingest(req, env, await authenticate(req, env, 'scans:write'), reportType[1]);
+  }
   if (path === '/v1/scans' && req.method === 'POST') {
     return ingest(req, env, await authenticate(req, env, 'scans:write'));
   }
