@@ -85,3 +85,7 @@ The ingestion API is intentionally separate from `devshield.mabrigkorie.org` (fu
 ### Contact
 
 MABRIG Technologies — mabrig@mabrigkorie.org
+
+## Experimental organization policy API
+
+The review-stage `GET/PUT /v1/org-policy` endpoints and manual D1 migration are documented in [Reachability and organization policy foundations](../docs/REACHABILITY-ORG-POLICY-FOUNDATIONS.md). They require separately provisioned `policies:read`/`policies:write` scopes. Policies are not automatically applied to repositories. Do not run the migration in production without backups, testing, and approval.
