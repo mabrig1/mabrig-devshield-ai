@@ -103,7 +103,7 @@ const html = String.raw`<!doctype html>
   </main>
   <footer class="footer"><div class="shell footrow">
     <span>© 2026 MABRIG Technologies · DevShield AI<br>Developer-native security, with people in control.</span>
-    <div class="footlinks"><a href="https://github.com/mabrig1/mabrig-devshield-ai" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/mabrig1/mabrig-devshield-ai/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Report vulnerability</a><a href="https://github.com/mabrig1/mabrig-devshield-ai/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy</a><a href="mailto:victoryonline1@gmail.com">Contact</a></div>
+    <div class="footlinks"><a href="https://github.com/mabrig1/mabrig-devshield-ai" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/mabrig1/mabrig-devshield-ai/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Report vulnerability</a><a href="https://github.com/mabrig1/mabrig-devshield-ai/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy</a><a href="mailto:mabrig@mabrigkorie.org">Contact</a></div>
   </div></footer>
 </body>
 </html>`;
