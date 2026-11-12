@@ -1,3 +1,4 @@
+import { normalizeOrgPolicy, readOrgPolicy, writeOrgPolicy } from './org-policy.mjs';
 // DevShield Commercial API MVP — Cloudflare Worker + D1.
 // Intentionally stores metadata and structured findings only, never source text or diffs.
 const MAX_BODY_BYTES = 262144;
@@ -138,7 +139,7 @@ async function authenticate(req, env, permission) {
   if (!env.DB) bad(503, 'unavailable', 'Database not configured');
   const keyHash = await hash(bearer(req));
   const record = await env.DB.prepare(`
-    SELECT k.tenant_id, k.scopes, t.daily_scan_limit
+    SELECT k.id AS key_id, k.tenant_id, k.scopes, t.daily_scan_limit
     FROM api_keys k JOIN tenants t ON t.id = k.tenant_id
     WHERE k.key_hash = ? AND k.status = 'active' AND t.status = 'active'
       AND (k.expires_at IS NULL OR k.expires_at > CURRENT_TIMESTAMP)
@@ -253,6 +254,36 @@ async function getUsage(env, principal) {
   return json({ date: day, scansUsed: Number(usage?.used || 0), dailyScanLimit: Number(principal.daily_scan_limit) });
 }
 
+
+async function getOrgPolicy(env, principal) {
+  const row = await readOrgPolicy(env.DB, principal.tenant_id);
+  if (!row) bad(404, 'not_found', 'Organization policy not initialized');
+  return json({ revision: Number(row.revision), sha256: row.policy_sha256,
+    policy: JSON.parse(row.policy_json), updatedAt: row.updated_at }, 200,
+    { etag: '"' + row.revision + '"' });
+}
+
+async function putOrgPolicy(req, env, principal) {
+  // Compare-and-swap prevents simultaneous administrators from silently clobbering changes.
+  // A quoted "0" bootstraps a tenant; afterwards the caller must supply the current revision.
+  const header = req.headers.get('if-match') || '';
+  if (!/^"[0-9]{1,9}"$/.test(header)) {
+    bad(428, 'precondition_required', 'Supply If-Match with the quoted revision, or "0" to initialize');
+  }
+  const expected = Number(header.slice(1, -1));
+  let policy;
+  try { policy = normalizeOrgPolicy(await readBoundedJson(req)); }
+  catch (error) {
+    if (error instanceof ApiError) throw error;
+    bad(422, 'invalid_policy', 'Invalid organization policy');
+  }
+  const digest = await hash(JSON.stringify(policy));
+  const revision = await writeOrgPolicy(env.DB, principal, policy, expected, digest);
+  if (revision === null) bad(409, 'revision_conflict', 'Policy changed or precondition does not match');
+  return json({ revision, sha256: digest, policy }, expected === 0 ? 201 : 200,
+    { etag: '"' + revision + '"' });
+}
+
 export async function handleRequest(req, env) {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/api(?=\/v1\/)/, '');
@@ -260,6 +291,12 @@ export async function handleRequest(req, env) {
     return json({ ok: true, component: 'DevShield Commercial API', version: '0.1.0' });
   }
   if (!path.startsWith('/v1/')) return json({ error: 'not_found' }, 404);
+  if (path === '/v1/org-policy' && req.method === 'GET') {
+    return getOrgPolicy(env, await authenticate(req, env, 'policies:read'));
+  }
+  if (path === '/v1/org-policy' && req.method === 'PUT') {
+    return putOrgPolicy(req, env, await authenticate(req, env, 'policies:write'));
+  }
   if (path === '/v1/scans' && req.method === 'POST') {
     return ingest(req, env, await authenticate(req, env, 'scans:write'));
   }

@@ -134,3 +134,38 @@ test('rejects malformed content, missing idempotency and inactive credentials', 
   resp = await send(env, '/v1/usage', a);
   assert.equal(resp.status, 401);
 });
+
+test('organization policy API uses separate scopes, CAS revisions, and tenant isolation', async () => {
+  const { env, a, b, readOnly, db } = tenantSetup();
+  db.raw.exec(readFileSync(join(here, '../org-policy-migration.sql'), 'utf8'));
+  db.raw.prepare("UPDATE api_keys SET scopes = 'scans:read scans:write policies:read policies:write' WHERE id = 'a'").run();
+  db.raw.prepare("UPDATE api_keys SET scopes = 'scans:read policies:read' WHERE id = 'b'").run();
+  const policy = {
+    schemaVersion: 1, name: 'default',
+    repositories: ['mabrig1/app-a', 'mabrig1/app-b'],
+    controls: { failOn: 'high', riskExceptionMaxDays: 14, riskExceptionAllowCritical: false }
+  };
+  let resp = await send(env, '/v1/org-policy', readOnly);
+  assert.equal(resp.status, 403, 'ordinary scan tokens have no policy privileges');
+  resp = await send(env, '/v1/org-policy', b);
+  assert.equal(resp.status, 404);
+  resp = await send(env, '/v1/org-policy', a, 'PUT', policy);
+  assert.equal(resp.status, 428);
+  resp = await send(env, '/v1/org-policy', a, 'PUT', policy, { 'if-match': '"0"' });
+  assert.equal(resp.status, 201);
+  assert.equal(resp.headers.get('etag'), '"1"');
+  resp = await send(env, '/v1/org-policy', a);
+  assert.equal((await resp.json()).policy.repositories.length, 2);
+  resp = await send(env, '/v1/org-policy', a, 'PUT', policy, { 'if-match': '"0"' });
+  assert.equal(resp.status, 409);
+  resp = await send(env, '/v1/org-policy', b, 'PUT', policy, { 'if-match': '"0"' });
+  assert.equal(resp.status, 403, 'read-only policy tokens cannot update');
+  const changed = { ...policy, name: 'new-revision' };
+  resp = await send(env, '/v1/org-policy', a, 'PUT', changed, { 'if-match': '"1"' });
+  assert.equal(resp.status, 200);
+  assert.equal((await resp.json()).revision, 2);
+  const audit = db.raw.prepare("SELECT revision, action FROM org_policy_audit WHERE tenant_id = 'ta' ORDER BY revision").all();
+  assert.deepEqual(audit.map(row => [row.revision, row.action]), [[1, 'created'], [2, 'updated']]);
+  resp = await send(env, '/v1/org-policy', a, 'PUT', { ...policy, controls: { failOn: 'unsafe' } }, { 'if-match': '"2"' });
+  assert.equal(resp.status, 422);
+});
