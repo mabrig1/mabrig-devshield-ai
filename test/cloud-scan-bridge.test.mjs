@@ -105,3 +105,26 @@ test('CLI runs entirely offline without a cloud key when --upload is absent', ()
     assert.ok(out.includes('build.ps1'), 'local output can keep full evidence');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+
+test('uploader refuses manually injected paths, source fields or altered report schema before sending', async () => {
+  const dir = tempFixture();
+  try {
+    const prepared = buildCloudReport(scanLocal({ workspace: dir, mode: 'preflight' }), options);
+    let attempts = 0;
+    const fake = async () => { attempts++; return new Response('{}', { status: 201 }); };
+    const withSource = structuredClone(prepared);
+    withSource.payload.findings[0].source = 'secret raw source';
+    await assert.rejects(uploadCloudReport(withSource, { origin: API, apiKey: key, fetchImpl: fake }), /Privacy contract/);
+    const withPath = structuredClone(prepared);
+    withPath.payload.findings[0].file = 'sensitive/private-project.js';
+    await assert.rejects(uploadCloudReport(withPath, { origin: API, apiKey: key, fetchImpl: fake }), /Privacy contract/);
+    const withKey = structuredClone(prepared);
+    withKey.payload.apiKey = key;
+    await assert.rejects(uploadCloudReport(withKey, { origin: API, apiKey: key, fetchImpl: fake }), /Privacy contract/);
+    const withInvalidId = structuredClone(prepared);
+    withInvalidId.idempotencyKey = 'bad';
+    await assert.rejects(uploadCloudReport(withInvalidId, { origin: API, apiKey: key, fetchImpl: fake }), /idempotency/);
+    assert.equal(attempts, 0, 'all privacy validation must run before network');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
