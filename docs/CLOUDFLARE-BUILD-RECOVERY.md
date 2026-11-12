@@ -4,7 +4,7 @@
 
 ## Why Cloudflare can fail while GitHub CI passes
 
-The GitHub Action scanner is a Node.js CLI, not a Cloudflare Worker entrypoint. This repository's previous Cloudflare Worker files are inside `commercial-api/` and `runtime-waf/`, which have different roles. The repository root does not have an active Wrangler configuration. Cloudflare Workers Builds uses the configured **root directory**, **build command**, **deploy command**, and **preview command**; running `npx wrangler deploy` from an unconfigured root can fail or trigger automatic configuration.
+The GitHub Action scanner is a Node.js CLI, not a Cloudflare Worker entrypoint. This repository's previous Cloudflare Worker files are inside `commercial-api/` and `runtime-waf/`, which have different roles. This repair branch adds a root `wrangler.jsonc` and a nested `cloudflare-deploy/wrangler.json` so the Worker can be bundled from either configured root. Cloudflare Workers Builds uses the configured **root directory**, **build command**, **deploy command**, and **preview command**; running `npx wrangler deploy` from an unconfigured root can fail or trigger automatic configuration.
 
 Cloudflare also requires the Wrangler `name` to match the existing Worker name when connecting to that Worker. This candidate uses `name: mabrig-devshield-ai` for that reason. A different project name should be used only in a **separately created staging Worker** with a matching config.
 
@@ -33,7 +33,7 @@ Then inspect **Settings → Builds** (not the separate Settings → Variables an
 
 - Git repository: `mabrig1/mabrig-devshield-ai`
 - Connected Worker: `mabrig-devshield-ai`
-- Root directory for this **isolated candidate**: `cloudflare-deploy`
+- Preferred root directory: `cloudflare-deploy`. Alternatively, use repository root `.` with the new root `wrangler.jsonc`.
 - Build command: `npm run check`
 - Deploy command for an approved production promotion: `npx wrangler deploy`
 - Preview command (if previews enabled): `npx wrangler preview`
