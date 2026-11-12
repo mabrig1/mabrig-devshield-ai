@@ -1,4 +1,4 @@
-# MABRIG DevShield Endpoint Threat Guard — Windows Desktop 0.1
+# MABRIG DevShield Endpoint Threat Guard — Windows Desktop 0.2
 
 **Status: unsigned, experimental Windows x64 portable application for developer-threat preflight.** Includes **optional ClamAV-based virus signature detection, official FreshClam definition updates and reversible user-approved quarantine** when you install the official ClamAV engine separately. It is not a certified antivirus, real-time system protection, Microsoft Defender replacement or EDR.
 
