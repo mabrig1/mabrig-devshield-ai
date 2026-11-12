@@ -4,6 +4,7 @@ import { readFileSync, statSync } from 'node:fs';
 import worker from '../src/index.mjs';
 
 const config = JSON.parse(readFileSync(new URL('../wrangler.json', import.meta.url), 'utf8'));
+const rootConfig = JSON.parse(readFileSync(new URL('../../wrangler.jsonc', import.meta.url), 'utf8'));
 const assets = {
   async fetch(request) {
     const pathname = new URL(request.url).pathname;
@@ -23,6 +24,11 @@ test('Wrangler configuration publishes website assets under existing Worker name
   assert.equal(config.assets.binding, 'ASSETS');
   assert.equal(config.assets.run_worker_first, true);
   assert.equal(config.assets.directory, './public');
+  assert.equal(rootConfig.name, config.name);
+  assert.equal(rootConfig.main, 'cloudflare-deploy/src/index.mjs');
+  assert.equal(rootConfig.assets.directory, './cloudflare-deploy/public');
+  assert.equal(rootConfig.assets.binding, config.assets.binding);
+  assert.equal(rootConfig.assets.run_worker_first, true);
   assert.ok(!('d1_databases' in config), 'Do not invent a D1 binding');
   assert.ok(!('vars' in config), 'Never put secrets into tracked vars');
   for (const name of ['app.css', 'app.js', 'favicon.svg']) {
