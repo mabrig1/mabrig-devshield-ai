@@ -11,5 +11,6 @@
     "directory": "./cloudflare-deploy/public",
     "binding": "ASSETS",
     "run_worker_first": true
-  }
+  },
+  "previews": {}
 }
