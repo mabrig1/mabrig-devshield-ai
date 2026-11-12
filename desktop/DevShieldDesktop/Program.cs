@@ -18,7 +18,7 @@ internal static class Program
 
         if (args.Length == 1 && args[0] == "--self-test-malware")
         {
-            Environment.ExitCode = ClamAvIntegration.SelfTest() ? 0 : 1;
+            Environment.ExitCode = ClamAvIntegration.SelfTest() && QuarantineStore.SelfTest() ? 0 : 1;
             return;
         }
 
