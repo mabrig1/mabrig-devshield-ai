@@ -27,5 +27,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Bundle Worker without deploying it or reading production secrets
         run: npx wrangler deploy --dry-run --outdir .dry-run
+      - name: Verify repository-root Wrangler configuration without deploying
+        run: npx wrangler deploy --config ../wrangler.jsonc --dry-run --outdir .dry-run-root
       - name: Verify a Worker bundle exists
         run: test -n "$(find .dry-run -maxdepth 1 -type f -name '*.js' -print -quit)"
