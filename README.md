@@ -790,3 +790,7 @@ See [docs/PRICING.md](docs/PRICING.md), [SUPPORT.md](SUPPORT.md), [PRIVACY.md](P
 **Sales & support:** mabrig@mabrigkorie.org
 
 © 2026 MABRIG Technologies.
+
+## Experimental reachability evidence and organization policy foundations
+
+An opt-in [CodeQL source-to-sink evidence importer and tenant-scoped organization policy API](docs/REACHABILITY-ORG-POLICY-FOUNDATIONS.md) are under review. Neither is a native taint solver or a deployed GitHub App; existing scan and merge gates are unchanged.
