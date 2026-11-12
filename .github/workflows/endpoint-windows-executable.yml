@@ -92,6 +92,8 @@ jobs:
           $gui = (Resolve-Path "dist/desktop/DevShield-Desktop.exe").Path
           & $gui --version
           if ($LASTEXITCODE -ne 0) { throw "GUI executable startup smoke failed" }
+          & $gui --self-test-malware
+          if ($LASTEXITCODE -ne 0) { throw "ClamAV result parsing or reversible quarantine self-test failed" }
           $files = @("DevShield-Desktop.exe", "DevShield-Endpoint.exe")
           $sums = foreach ($name in $files) {
             $hash = (Get-FileHash -Path ("dist/desktop/" + $name) -Algorithm SHA256).Hash.ToLowerInvariant()
