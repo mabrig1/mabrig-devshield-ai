@@ -1,4 +1,4 @@
-// Small, offline-in-browser heuristic preview. No fetch(), telemetry or uploads.
+// Small, offline-in-browser heuristic preview. No network requests, telemetry or uploads.
 // The full deterministic engine is the Node CLI in the GitHub repository.
 const pick = id => document.getElementById(id);
 const fileBox = pick('scan-files');
