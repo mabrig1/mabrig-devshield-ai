@@ -1,0 +1,13 @@
+{
+  "name": "@mabrig/devshield-worker-deployment-candidate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node --check src/index.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check src/index.mjs && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
