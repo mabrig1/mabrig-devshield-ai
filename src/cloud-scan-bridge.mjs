@@ -18,13 +18,16 @@ function validRepo(repo) {
       repo.includes('..') || repo.startsWith('-')) throw Error('Invalid repository name; use owner/repository');
   return repo;
 }
-function fingerprint(f) {
+function fingerprint(f, secret) {
   // Stable private correlation only: the original relative path never leaves the device.
-  return crypto.createHash('sha256')
+  return crypto.createHmac('sha256', secret)
     .update(JSON.stringify([String(f.rule || ''), String(f.file || ''), f.line || 0, f.severity]))
     .digest('hex');
 }
-export function buildCloudReport(localReport, { repository, idempotencyKey = crypto.randomUUID() } = {}) {
+export function buildCloudReport(localReport, { repository, idempotencyKey = crypto.randomUUID(), fingerprintKey } = {}) {
+  if (typeof fingerprintKey !== 'string' || !KEY.test(fingerprintKey)) {
+    throw Error('Cloud API key required for private HMAC fingerprints');
+  }
   validRepo(repository);
   if (!localReport || !MODES.has(localReport.mode) || localReport.complete !== true ||
       !Array.isArray(localReport.findings) || localReport.findings.length > MAX_FINDINGS ||
@@ -38,7 +41,7 @@ export function buildCloudReport(localReport, { repository, idempotencyKey = cry
       throw Error('Invalid local finding; upload refused');
     }
     return {
-      fingerprint: fingerprint(f),
+      fingerprint: fingerprint(f, fingerprintKey),
       rule: f.rule,
       severity: f.severity,
       category: f.category,
