@@ -45,6 +45,7 @@ try {
   } else {
     const prepared = buildCloudReport(report, {
       repository: options.repository,
+      fingerprintKey: process.env.DEVSHIELD_CLOUD_API_KEY,
       idempotencyKey: options['idempotency-key'] || undefined
     });
     const result = await uploadCloudReport(prepared, {
