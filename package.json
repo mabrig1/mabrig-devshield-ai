@@ -28,7 +28,8 @@
     "waap:policy": "node bin/waap-policy.mjs",
     "preflight": "node bin/repository-preflight.mjs",
     "reachability": "node bin/reachability.mjs",
-    "build": "node --check cloudflare-deploy/src/index.mjs && node --check cloudflare-deploy/public/app.js && node --test cloudflare-deploy/test/*.test.mjs"
+    "build": "node --check cloudflare-deploy/src/index.mjs && node --check cloudflare-deploy/public/app.js && node --test cloudflare-deploy/test/*.test.mjs",
+    "public:smoke": "node bin/check-public-devshield.mjs"
   },
   "engines": {
     "node": ">=20"
