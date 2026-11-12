@@ -129,7 +129,10 @@ internal static class ClamScanSafety
             return false;
         var summary = ParseSummary(stdout);
         if (!summary.Valid || summary.Errors > 0 || summary.ScannedFiles < target.Files ||
-            summary.InfectedFiles < matchedCount || (exitCode == 1 && matchedCount == 0))
+            summary.InfectedFiles < matchedCount ||
+            (exitCode == 0 && summary.InfectedFiles > 0) ||
+            (exitCode == 1 && summary.InfectedFiles == 0) ||
+            (exitCode == 1 && matchedCount == 0))
             return false;
         return true;
     }
@@ -144,6 +147,9 @@ internal static class ClamScanSafety
             !IsSuccessfulCoverage(0, clean, "", false, new(true, 3, 100, "unscanned file"), 0) &&
             !IsSuccessfulCoverage(0, clean, "WARNING: file skipped", false, normal, 0) &&
             !IsSuccessfulCoverage(0, clean, "", true, normal, 0) &&
+            !IsSuccessfulCoverage(0, infected, "", false, new(true, 1, 10, "ok"), 1) &&
+            !IsSuccessfulCoverage(2, clean, "", false, normal, 0) &&
+            HasUntrustedCoverageSignal("file: Heuristics.Limits.Exceeded FOUND\n", "", false) &&
             !IsSuccessfulCoverage(0, "random output", "", false, normal, 0) &&
             IsSuccessfulCoverage(1, infected, "", false, new(true, 1, 10, "ok"), 1) &&
             !IsSuccessfulCoverage(1, infected, "", false, new(true, 1, 10, "ok"), 0) &&
