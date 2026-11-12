@@ -8,7 +8,7 @@ The GitHub Action scanner is a Node.js CLI, not a Cloudflare Worker entrypoint. 
 
 Cloudflare also requires the Wrangler `name` to match the existing Worker name when connecting to that Worker. This candidate uses `name: mabrig-devshield-ai` for that reason. A different project name should be used only in a **separately created staging Worker** with a matching config.
 
-**The exact first blocker from the dashboard failure is unverified.** The GitHub check only reports failure and the Cloudflare build URL; the Cloudflare build log is needed to distinguish incorrect root/command settings from missing Git permissions, account token privileges, Wrangler version, runtime imports, or another issue.
+**Confirmed preview build blocker (November 12, 2026):** Cloudflare executed `npx wrangler preview` against a Wrangler configuration without a `previews` block. Its first fatal error explicitly requested `"previews": {}`. Both root `wrangler.jsonc` and `cloudflare-deploy/wrangler.json` now include this opt-in. Commit `9322695` passed GitHub CI and received **Cloudflare Build: Success** on PR #46. This confirms preview packaging, **not** promotion to production.
 
 ## Verify without touching production
 
@@ -75,6 +75,13 @@ Merely defining these variables does not enable email, AI features, or paid scan
 Sources:
 - https://developers.cloudflare.com/workers/ci-cd/builds/configuration/
 - https://developers.cloudflare.com/workers/ci-cd/builds/
+
+
+### Verified live-domain failure (November 12, 2026)
+
+An independent HTTP check of `https://devshield.mabrigkorie.org/`, `/health` and `/api/v1/scans` returned **Hello world** for all three. This proves the currently routed Worker is **not** the review-stage candidate (candidate `/health` returns JSON and `/api/` returns a fail-closed error). The Cloudflare preview bot reports a successful PR build, but there is **no public Preview URL** because the account has Preview URLs disabled.
+
+The production branch `main` did not yet contain the candidate's root `wrangler.jsonc` or `cloudflare-deploy/src/index.mjs`; production therefore cannot change solely from a green PR check. Review and consciously promote a release only after comparing existing routes and bindings. A merge to `main` is a production-changing action when Git-linked Workers Builds auto-deploys; **do not merge this PR as a harmless build-only fix**. The candidate is an informational website and browser-local limited scanner, not the cloud commercial API.
 
 ## Replacing the live Hello world safely
 
