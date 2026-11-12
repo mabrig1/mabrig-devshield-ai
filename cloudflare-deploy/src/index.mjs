@@ -17,7 +17,7 @@ const html = String.raw`<!doctype html>
 <body>
   <a class="sr-only" href="#main">Skip to content</a>
   <header class="topbar"><div class="shell toprow">
-    <a class="brand" href="/" aria-label="DevShield AI home"><span class="brandmark" aria-hidden="true">✓</span><span><small>MABRIG TECHNOLOGIES</small><strong>DevShield <span style="color:#5be9d1">AI</span></strong></span></a>
+    <a class="brand" href="/" aria-label="DevShield AI home"><span class="brandmark" aria-hidden="true">✓</span><span><small>MABRIG TECHNOLOGIES</small><strong>DevShield <span class="brand-accent">AI</span></strong></span></a>
     <nav class="nav" aria-label="Main navigation">
       <a href="#capabilities">Capabilities</a><a href="#scanner">Local scanner</a><a href="#getting-started">Get started</a><a href="#status">Platform status</a>
       <a class="button ghost" href="https://github.com/mabrig1/mabrig-devshield-ai" target="_blank" rel="noopener noreferrer">View GitHub ↗</a>
@@ -43,7 +43,7 @@ const html = String.raw`<!doctype html>
           <div class="signal warn"><span class="num">02</span><span>Inspect suspicious indicators<small>Build hooks · encoded commands · secrets</small></span></div>
           <div class="signal"><span class="num">03</span><span>Review evidence and decide<small>Human-controlled remediation</small></span></div>
           <div class="terminal">$ devshield-preflight ./unknown-project
-<span style="color:#7f9ebd"># Inspect first. Run only after review.</span></div>
+<span class="terminal-note"># Inspect first. Run only after review.</span></div>
         </div>
       </div>
     </div></section>
@@ -87,9 +87,9 @@ const html = String.raw`<!doctype html>
         <article class="step"><em>02</em><h3>Review findings</h3><p>Investigate network indicators and build scripts; remove hazards, rotate exposed keys, and decide whether code can be trusted.</p></article>
         <article class="step"><em>03</em><h3>Automate future checks</h3><p>Add the DevShield GitHub Action to pull requests with appropriately reviewed permission and policy settings.</p></article>
       </div>
-      <h3 style="margin:27px 0 12px;font-size:17px">Run the local repository preflight</h3>
+      <h3 class="code-title">Run the local repository preflight</h3>
       <div class="codebar"><code>node bin/repository-preflight.mjs ./untrusted-project --fail-on high</code><a class="button" href="https://github.com/mabrig1/mabrig-devshield-ai" target="_blank" rel="noopener noreferrer">Get CLI ↗</a></div>
-      <p class="hint" style="margin-top:12px">Command runs from the DevShield repository. Inspect downloaded projects without launching install/build scripts.</p>
+      <p class="hint small-top">Command runs from the DevShield repository. Inspect downloaded projects without launching install/build scripts.</p>
     </section>
     <section class="section shell" id="status">
       <div class="overline">TRANSPARENT STATUS</div><h2 class="section-title">What is available today?</h2>
@@ -114,7 +114,7 @@ const baseHeaders = {
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-frame-options': 'DENY',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
 };
 function respond(content, type, status = 200, method = 'GET') {
   return new Response(method === 'HEAD' ? null : content, {
