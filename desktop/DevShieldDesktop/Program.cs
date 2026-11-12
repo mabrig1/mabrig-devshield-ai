@@ -16,12 +16,18 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 1 && args[0] == "--self-test-malware")
+        {
+            Environment.ExitCode = ClamAvIntegration.SelfTest() ? 0 : 1;
+            return;
+        }
+
         ApplicationConfiguration.Initialize();
         Application.Run(new ScannerForm());
     }
 }
 
-internal sealed class ScannerForm : Form
+internal sealed partial class ScannerForm : Form
 {
     private readonly TextBox _selectedPath = new();
     private readonly Label _status = new();
@@ -65,7 +71,7 @@ internal sealed class ScannerForm : Form
         };
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 65));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 108));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 152));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
@@ -132,6 +138,7 @@ internal sealed class ScannerForm : Form
         _export.Enabled = false;
         foreach (var button in new[] { _chooseFile, _chooseFolder, _downloads, _scan, _cancel, _export, _watch })
             actions.Controls.Add(button);
+        InitializeMalwareControls(actions);
         selection.Controls.Add(actions, 0, 1);
         root.Controls.Add(selection, 0, 2);
 
@@ -179,6 +186,7 @@ internal sealed class ScannerForm : Form
         _export.Click += (_, _) => ExportReport();
         _watch.Click += (_, _) => ToggleWatch();
         _watchTimer.Tick += async (_, _) => { if (!_running) await ScanOnceAsync(); };
+        _findings.SelectedIndexChanged += (_, _) => UpdateQuarantineSelection();
         FormClosing += (_, _) => { _watchTimer.Stop(); _scanCancellation?.Cancel(); };
     }
 
@@ -202,6 +210,7 @@ internal sealed class ScannerForm : Form
         _watchTimer.Stop();
         _watch.Text = "Start 60s polling";
         _selectedPath.Text = target;
+        ClearClamAvSelections();
         _scan.Enabled = true;
         _status.Text = "Ready to inspect selected target without executing any of its contents.";
     }
@@ -259,6 +268,9 @@ internal sealed class ScannerForm : Form
             return;
         }
 
+        ClearClamAvSelections();
+        _clamScan.Enabled = false;
+        _updateDefinitions.Enabled = false;
         _running = true;
         _scanCancellation = new CancellationTokenSource(TimeSpan.FromMinutes(4));
         _scan.Enabled = false;
@@ -303,6 +315,8 @@ internal sealed class ScannerForm : Form
             _downloads.Enabled = true;
             _cancel.Enabled = false;
             _watch.Enabled = true;
+            _clamScan.Enabled = true;
+            _updateDefinitions.Enabled = true;
             _scanCancellation.Dispose();
             _scanCancellation = null;
         }
