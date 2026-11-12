@@ -180,25 +180,30 @@ export function scanEndpoint(target, limits = {}) {
       error(rel, 'binary-executable-not-analyzed');
     } else if (TEXT.test(rel)) {
       if (bytes.includes(0) && !/\.suo$/i.test(rel)) { error(rel, 'binary-text-input'); return; }
-      const text = /\.suo$/i.test(rel) ? bytes.toString('latin1') : bytes.toString('utf8');
+      const text = /\.suo$/i.test(rel)
+        ? bytes.toString('latin1') + '\n' + bytes.toString('utf16le')
+        : bytes.toString('utf8');
       report.findings.push(...inspectText(text, rel));
     }
   }
   function walk(dir, depth) {
     if (depth > caps.maxDepth) { error(path.relative(root, dir), 'max-depth-reached'); return; }
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+    let handle;
+    try { handle = fs.opendirSync(dir); }
     catch { error(path.relative(root, dir), 'directory-unreadable'); return; }
-    for (const entry of entries) {
-      const file = path.join(dir, entry.name);
-      const rel = path.relative(root, file).replace(/\\/g, '/');
-      if (++visits > caps.maxFiles) { error(rel, 'max-file-count-reached'); return; }
-      if (entry.isSymbolicLink()) { error(rel, 'symlink-not-followed'); continue; }
-      if (entry.isDirectory()) {
-        if (IGNORED.has(entry.name)) { report.skippedDirectories.push(rel); continue; }
-        walk(file, depth + 1);
-      } else inspect(file, rel);
-    }
+    try {
+      for (let entry = handle.readSync(); entry !== null; entry = handle.readSync()) {
+        const file = path.join(dir, entry.name);
+        const rel = path.relative(root, file).replace(/\\/g, '/');
+        if (++visits > caps.maxFiles) { error(rel, 'max-file-count-reached'); break; }
+        if (entry.isSymbolicLink()) { error(rel, 'symlink-not-followed'); continue; }
+        if (entry.isDirectory()) {
+          if (IGNORED.has(entry.name)) { report.skippedDirectories.push(rel); continue; }
+          walk(file, depth + 1);
+        } else inspect(file, rel);
+      }
+    } catch { error(path.relative(root, dir), 'directory-traversal-failed'); }
+    finally { handle.closeSync(); }
   }
   if (rootInfo.isFile()) inspect(root, path.basename(root));
   else walk(root, 0);
