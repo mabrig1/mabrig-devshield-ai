@@ -790,3 +790,7 @@ See [docs/PRICING.md](docs/PRICING.md), [SUPPORT.md](SUPPORT.md), [PRIVACY.md](P
 **Sales & support:** mabrig@mabrigkorie.org
 
 © 2026 MABRIG Technologies.
+
+## Experimental offline Endpoint Threat Guard
+
+A read-only, developer-focused [endpoint threat preflight CLI](docs/ENDPOINT-THREAT-GUARD.md) can review untrusted project directories, files, and bounded archive metadata without running them. It is **not general antivirus, real-time EDR, a quarantine agent, or a signed desktop installer**. Review the documented limits before using results for security decisions.
