@@ -1,0 +1,33 @@
+name: DevShield Public Deployment Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devshield-public-website-smoke
+  cancel-in-progress: false
+
+jobs:
+  production-smoke:
+    name: Verify public homepage and health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Run isolated offline verifier tests
+        run: node --test test/public-deployment-smoke.test.mjs
+      - name: Read-only GET smoke against public DevShield website
+        run: npm run public:smoke
+      - name: Explain failure without modifying production
+        if: failure()
+        run: |
+          echo 'Public smoke failed: inspect browser routes, DNS, TLS, and the latest Cloudflare Workers Build for main.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No deploy, rollback, secret access or Cloudflare changes were attempted.' >> "$GITHUB_STEP_SUMMARY"
