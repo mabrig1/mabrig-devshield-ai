@@ -4,3 +4,5 @@
 @media(max-width:1020px){.hero-grid{grid-template-columns:1fr;gap:34px}.hero-visual{transform:none;max-width:620px}.nav{gap:14px}.grid3{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.shell{padding:0 18px}.topbar{height:68px}.brand{font-size:17px}.brandmark{height:32px;width:30px}.nav{gap:10px}.nav a:not(.button){display:none}.nav .button{padding:9px 10px;font-size:12px}.hero{padding:53px 0 35px}.hero h1{font-size:clamp(39px,11vw,58px)}.hero p{font-size:15px}.hero-grid{gap:28px}.grid3,.scanner-grid,.steps,.status-grid{grid-template-columns:1fr}.editor{border-right:0;border-bottom:1px solid var(--line)}.workstation-head{flex-direction:column;padding:18px}.editor,.results{padding:18px}.section{padding:40px 0}.codebar{align-items:flex-start;flex-direction:column}.footrow{align-items:flex-start}.footlinks{flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button{transition:none}.button:hover{transform:none}}
+
+.brand-accent{color:#5be9d1}.terminal-note{color:#7f9ebd}.code-title{margin:27px 0 12px;font-size:17px}.small-top{margin-top:12px}
