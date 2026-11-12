@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import { scanEndpoint } from '../src/endpoint-shield.mjs';
 
 function mockZipEntry(name, expanded = 100, compressed = 50) {
@@ -175,7 +176,7 @@ export function markdownReport(report) {
 }
 // Only run the CLI main when invoked directly. The deterministic test suite imports this module.
 const entry = process.argv[1] ? path.resolve(process.argv[1]) : null;
-const source = new URL(import.meta.url).pathname;
+const source = fileURLToPath(import.meta.url);
 if (entry && entry === path.resolve(source)) {
   const args = process.argv.slice(2);
   if (args.some(a => a !== '--json')) {
