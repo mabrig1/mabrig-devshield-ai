@@ -70,12 +70,38 @@ Set CREDIT_METERING_REQUIRED=true **only after** every paying tenant has an acco
 
 **"Token" means a scan credit. It is NOT OpenRouter/LLM tokens, a digital asset, or proof of purchased usage.** Balances/quotas are metering primitives; there is **no** production payment capture, Stripe/Paystack checkout, refunds, recurring billing, usage invoicing, fraud protection, marketplace listing, or advertised live prices in this change.
 
+
+## D. Local-to-Cloud Bridge CLI (explicit opt-in)
+
+A workstation can now **actually scan local source and build a cloud-compatible report**, while the Cloudflare Worker stores only a privacy-limited summary after the operator deliberately opts into upload. No public commercial service is activated by this change.
+
+Run offline, without any cloud account or internet:
+
+    node bin/cloud-scan.mjs --workspace ./project --mode preflight
+    node bin/cloud-scan.mjs --workspace ./project --mode full --format sarif
+
+When an approved, separately provisioned DevShield commercial API and tenant-scoped key are ready:
+
+    # Set DEVSHIELD_CLOUD_API_KEY in a protected environment/secret manager.
+    node bin/cloud-scan.mjs --workspace ./project --mode preflight --upload \
+      --repository owner/project \
+      --api-origin https://your-approved-commercial-api.example.com \
+      --idempotency-key your-stable-scan-run-001
+
+The API origin must be an HTTPS public DNS origin with no path, query, credentials, local host or nondefault port. Requests explicitly reject redirects and have a timeout. The optional idempotency key lets manual retries reuse the same scan identity; without it each CLI execution generates a new UUID and may consume another scan credit.
+
+**Data minimization:** the bridge allowlists rule ID, severity, category, confidence, keyed HMAC fingerprint and summary risk score. It omits all source text, snippets, file and directory names, line numbers, arbitrary messages, dependency names, graph internals, WAAP routes and private configuration. Fingerprints are HMAC-SHA256 keyed using the API key; the key itself is neither stored in the report nor printed. A scan that is incomplete, capped or malformed is not uploaded.
+
+This privacy-safe report is intentionally less detailed than the original local JSON/SARIF report. The developer keeps detailed evidence on their machine. Do not point --api-origin at the public informational website at devshield.mabrigkorie.org: that website has no configured hosted commercial ingestion API. Cloud receiving services require an independently approved D1 migration, API key issuance and protected API hostname.
+
 ## Verification
 
     node --test commercial-api/test/*.test.mjs
     node --test test/local-scan-api.test.mjs
     node --check commercial-api/worker/src/index.mjs
     node --check src/local-scan-api.mjs
+    node --test test/cloud-scan-bridge.test.mjs
+    node --check bin/cloud-scan.mjs
     npm test
 
 Security hardening before deployment: threat model the localhost server; replay/attempt rate controls and proxy filtering, local sandboxing or process isolation for malformed/untrusted artifacts; D1 retention pruning for request buckets, secret/key rotation and audit; versioned SDKs, authenticated tenant onboarding, trusted identity for connected repositories; verified billing webhooks; load/concurrency tests; TLS and production staging certification.
