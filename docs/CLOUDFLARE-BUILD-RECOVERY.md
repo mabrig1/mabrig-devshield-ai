@@ -1,6 +1,6 @@
 # Cloudflare Workers Builds: isolated build and deployment preparation
 
-**State: review-stage only.** This directory is a minimal, nonproduction Worker candidate. It proves the repository can bundle a Worker without source checkout execution or external credentials. It does **not** replace the existing GitHub Action, provide live DevShield scan APIs, activate OpenRouter/Resend, or migrate D1.
+**State: review-stage only.** This directory is a review-stage Worker website candidate. It serves a responsive DevShield homepage and a **browser-local, limited static-indicator scanner** with no network upload. It does **not** replace the existing GitHub Action, execute server-side DevShield scans, provide cloud subscription or billing APIs, activate OpenRouter/Resend, or migrate D1.
 
 ## Why Cloudflare can fail while GitHub CI passes
 
@@ -17,13 +17,13 @@ From a working copy of this PR branch:
 ```bash
 cd cloudflare-deploy
 npm install --no-audit --no-fund
-npm test
+npm run check
 npx wrangler deploy --dry-run --outdir .dry-run
 ```
 
 The dedicated GitHub Action `DevShield Worker Build Validation` performs these checks and publishes no Worker. No API tokens or Resend/OpenRouter keys are needed.
 
-**Do not merge this directory and immediately point the existing production Worker at it.** Doing so would deploy a health/status stub in place of any existing production logic. First review the active Worker version and routes, export existing production settings, and run an isolated preview or staging deployment.
+**Do not merge this directory and immediately point the existing production Worker at it.** Doing so would replace any existing production Worker routes with the public DevShield website and its explicitly disabled hosted API endpoints. First review the active Worker version and routes, export existing production settings, and run an isolated preview or staging deployment.
 
 ## Check the dashboard failure
 
@@ -39,7 +39,7 @@ Then inspect **Settings → Builds** (not the separate Settings → Variables an
 - Preview command (if previews enabled): `npx wrangler preview`
 - Production branch: the intended release branch, not an unreviewed PR
 
-**Do not change the existing production Worker build/deploy settings before reviewing the active deployment**. A `deploy` command can promote this stub to production. For this review stage, rely on GitHub's dry-run workflow.
+**Do not change the existing production Worker build/deploy settings before reviewing the active deployment**. A `deploy` command can promote the website Worker to production and replace the existing handler. For this review stage, rely on GitHub's dry-run workflow.
 
 ## API/email environment names
 
@@ -75,3 +75,16 @@ Merely defining these variables does not enable email, AI features, or paid scan
 Sources:
 - https://developers.cloudflare.com/workers/ci-cd/builds/configuration/
 - https://developers.cloudflare.com/workers/ci-cd/builds/
+
+## Replacing the live Hello world safely
+
+If https://devshield.mabrigkorie.org still displays Hello world, the domain is serving an older Cloudflare deployment or a different Worker; GitHub source changes alone do not publish it.
+
+1. Inspect Workers & Pages → mabrig-devshield-ai → Domains & Routes. Confirm the custom domain devshield.mabrigkorie.org is attached to that Worker, not a separate default Worker.
+2. Inspect Settings → Builds. Confirm the correct Git repository is connected and the root directory is `cloudflare-deploy`. Cloudflare requires the Wrangler name to match the connected Worker.
+3. Verify the `DevShield Worker Build Validation` GitHub workflow on the PR. It tests the UI and performs a Wrangler dry run without deployment.
+4. Test a preview: `/` should show the responsive DevShield website; `/app.css` and `/app.js` should load; `/health` returns JSON; unsupported routes return 404; `/api/` fails closed with 503.
+5. Export the existing production Worker version and review routes, domains and rollback first. If it has useful active APIs, do not overwrite it; create a separate website Worker.
+6. Only after review, merge to the selected production branch and deploy from the configured Cloudflare root. Confirm the updated version serves the intended domain. If a build fails, inspect the first failing Cloudflare build-log command.
+
+The browser preview uses JavaScript locally; no selected source is uploaded. It is not a full antivirus or hosted scan API. A successful GitHub dry run does not mean a production deployment occurred.
