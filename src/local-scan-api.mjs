@@ -48,9 +48,9 @@ function safeFile(root, relative, maxBytes = 1024 * 1024) {
 }
 function mapped(report, category) {
   return (report.findings || []).map(f => ({
-    rule: String(f.rule || f.id || 'review').slice(0, 100),
+    rule: String(f.rule || f.ruleId || f.id || 'review').slice(0, 100),
     severity: PRIORITY[f.severity] === undefined ? 'low' : f.severity,
-    category, file: String(f.file || f.path || '').slice(0, 500),
+    category, file: String(f.file || f.path || f.location || '').slice(0, 500),
     line: Number.isSafeInteger(f.line) && f.line > 0 ? f.line : 1,
     message: String(f.message || f.title || 'Review finding').slice(0, 300),
     remediation: String(f.remediation || f.recommendation || 'Review evidence and context').slice(0, 400),
@@ -147,12 +147,14 @@ export function scanLocal({ workspace, mode = 'preflight', spec = 'openapi.json'
     waapPolicy = specToWaap(root, spec);
     parts.waapPolicy = { status: 'generated', routeCount: waapPolicy.routes?.length || 0 };
   }
+  const truncated = findings.length > MAX_FINDINGS;
+  if (truncated) complete = false;
   findings = findings.slice(0, MAX_FINDINGS);
   const highest = findings.reduce((n, f) => Math.max(n, PRIORITY[f.severity] || 0), 0);
   const level = Object.keys(PRIORITY).find(key => PRIORITY[key] === highest) || 'info';
   return { schemaVersion: 1, engine: 'devshield-local-scan-adapter',
     mode, execution: 'offline-read-only', complete, parts,
-    summary: { findings: findings.length, highestSeverity: level, capped: findings.length === MAX_FINDINGS },
+    summary: { findings: findings.length, highestSeverity: level, capped: truncated },
     findings, ...(graph ? { graph } : {}), ...(waapPolicy ? { waapPolicy } : {}) };
 }
 export function scanSarif(report) {
