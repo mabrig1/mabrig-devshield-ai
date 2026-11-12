@@ -47,13 +47,13 @@ These are optional future runtime settings, **not prerequisites for the candidat
 
 ```dotenv
 # Server-side secret (real value added in dashboard, not in source)
-OPENROUTER_API_KEY=sk-or-v1-REPLACE_WITH_REAL_KEY
+OPENROUTER_API_KEY=<paste-real-value-as-a-Cloudflare-secret>
 # Optional text settings:
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_MODEL=openrouter/free
 
 # Server-side secret (real value added in dashboard, not in source)
-RESEND_API_KEY=re_REPLACE_WITH_REAL_KEY
+RESEND_API_KEY=<paste-real-value-as-a-Cloudflare-secret>
 # Must use a verified sending domain in Resend:
 RESEND_FROM_EMAIL=DevShield AI <security@mabrigkorie.org>
 # Replies may go to your Gmail inbox:
