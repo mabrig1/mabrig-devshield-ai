@@ -325,7 +325,40 @@ export async function handleRequest(req, env) {
   if (path === '/v1/credits' && req.method === 'GET') {
     return getCredits(env, await authenticate(req, env, 'credits:read'));
   }
-  const reportType = /^/v1/scan-reports/([a-z-]+)$/.exec(path);
+  const reportType = new RegExp('^/v1/scan-reports/([a-z-]+)
+  if (reportType && req.method === 'POST') {
+    if (!SCAN_TYPES.has(reportType[1]) || reportType[1] === 'github-action') {
+      return json({ error: 'not_found' }, 404);
+    }
+    return ingest(req, env, await authenticate(req, env, 'scans:write'), reportType[1]);
+  }
+  if (path === '/v1/scans' && req.method === 'POST') {
+    return ingest(req, env, await authenticate(req, env, 'scans:write'));
+  }
+  if (path === '/v1/scans' && req.method === 'GET') {
+    return listScans(req, env, await authenticate(req, env, 'scans:read'));
+  }
+  if (path === '/v1/usage' && req.method === 'GET') {
+    return getUsage(env, await authenticate(req, env, 'scans:read'));
+  }
+  if (path.startsWith('/v1/scans/') && req.method === 'GET') {
+    return getScan(env, await authenticate(req, env, 'scans:read'), path.slice('/v1/scans/'.length));
+  }
+  return json({ error: 'not_found' }, 404);
+}
+
+export default {
+  async fetch(req, env) {
+    try { return await handleRequest(req, env); }
+    catch (error) {
+      if (error instanceof ApiError) return json({ error: error.code, message: error.message }, error.status);
+      // Never expose SQL errors, credentials, or stack traces to API clients.
+      console.error('DevShield API request failed', error?.name || 'Error');
+      return json({ error: 'internal_error', message: 'Request could not be completed' }, 500);
+    }
+  }
+};
+).exec(path);
   if (reportType && req.method === 'POST') {
     if (!SCAN_TYPES.has(reportType[1]) || reportType[1] === 'github-action') {
       return json({ error: 'not_found' }, 404);
