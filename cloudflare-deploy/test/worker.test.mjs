@@ -21,10 +21,13 @@ test('Wrangler configuration publishes website assets under existing Worker name
   assert.equal(config.name, 'mabrig-devshield-ai');
   assert.equal(config.main, 'src/index.mjs');
   assert.equal(config.workers_dev, false);
+  assert.deepEqual(config.previews, {}, 'Nested Worker preview must opt in explicitly');
   assert.equal(config.assets.binding, 'ASSETS');
   assert.equal(config.assets.run_worker_first, true);
   assert.equal(config.assets.directory, './public');
   assert.equal(rootConfig.name, config.name);
+  assert.deepEqual(rootConfig.previews, {}, 'Root Worker preview must opt in explicitly');
+  assert.ok(!('d1_databases' in rootConfig), 'Do not wire production DB into previews');
   assert.equal(rootConfig.main, 'cloudflare-deploy/src/index.mjs');
   assert.equal(rootConfig.assets.directory, './cloudflare-deploy/public');
   assert.equal(rootConfig.assets.binding, config.assets.binding);
