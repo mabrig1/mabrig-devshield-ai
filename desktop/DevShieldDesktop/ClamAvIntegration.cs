@@ -16,6 +16,7 @@ internal static class ClamAvIntegration
     private static readonly Regex FoundLine =
         new(@"^(.+): ([A-Za-z0-9_.:+-]{1,180}) FOUND$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private const int MaxOutputChars = 4_000_000;
+    private static readonly TimeSpan MaxDefinitionAge = TimeSpan.FromDays(7);
 
     internal static string? FindInstallFolder()
     {
@@ -49,25 +50,37 @@ internal static class ClamAvIntegration
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Mabrig", "DevShield", "ClamAV-Definitions");
 
-    internal static string? DefinitionsStatus()
+    // File timestamps provide a conservative freshness signal, not a cryptographic
+    // attestation of the vendor's signature version or file authenticity.
+    private static DateTime? LatestDailyDefinitionUtc()
     {
-        string folder = DefinitionsDirectory;
-        if (!Directory.Exists(folder)) return null;
+        if (!Directory.Exists(DefinitionsDirectory)) return null;
         try
         {
-            var files = new DirectoryInfo(folder).EnumerateFiles()
+            var files = new DirectoryInfo(DefinitionsDirectory).EnumerateFiles()
                 .Where(f => (f.Extension.Equals(".cvd", StringComparison.OrdinalIgnoreCase) ||
                              f.Extension.Equals(".cld", StringComparison.OrdinalIgnoreCase)) &&
-                             new[] { "main", "daily", "bytecode" }.Contains(Path.GetFileNameWithoutExtension(f.Name),
-                               StringComparer.OrdinalIgnoreCase))
-                .ToList();
-            return files.Count == 0 ? null :
-                $"ClamAV signatures installed; latest file: {files.Max(f => f.LastWriteTimeUtc):u}";
+                            Path.GetFileNameWithoutExtension(f.Name).Equals("daily", StringComparison.OrdinalIgnoreCase) &&
+                            f.Length >= 1024 && (f.Attributes & FileAttributes.ReparsePoint) == 0 &&
+                            f.LastWriteTimeUtc <= DateTime.UtcNow.AddMinutes(5))
+                .ToArray();
+            return files.Length == 0 ? null : files.Max(f => f.LastWriteTimeUtc);
         }
         catch { return null; }
     }
 
-    private static bool HasDefinitions() => DefinitionsStatus() is not null;
+    internal static string? DefinitionsStatus()
+    {
+        var latest = LatestDailyDefinitionUtc();
+        if (latest is null) return null;
+        var stale = DateTime.UtcNow - latest.Value > MaxDefinitionAge;
+        return (stale ? "STALE ClamAV daily definitions" : "ClamAV daily definitions present") +
+            "; last file change (UTC): " + latest.Value.ToString("u");
+    }
+
+    private static bool HasDefinitions() =>
+        LatestDailyDefinitionUtc() is DateTime latest &&
+        DateTime.UtcNow - latest <= MaxDefinitionAge;
 
     private static string EnsureFreshClamConfig()
     {
@@ -85,6 +98,14 @@ internal static class ClamAvIntegration
             var bytes = Encoding.UTF8.GetBytes(data);
             writer.Write(bytes);
         }
+        // Do not honor a modified configuration that could redirect updates to
+        // an arbitrary mirror or write outside our per-user definition directory.
+        string expected = "DatabaseDirectory \"" + database + "\"\n" +
+                          "DatabaseMirror database.clamav.net\n" +
+                          "Checks 2\n";
+        if ((File.GetAttributes(config) & FileAttributes.ReparsePoint) != 0 ||
+            File.ReadAllText(config).Trim() != expected.Trim())
+            throw new InvalidOperationException("Untrusted FreshClam configuration; review vendor settings");
         return config;
     }
 
@@ -102,7 +123,7 @@ internal static class ClamAvIntegration
         return info;
     }
 
-    private static async Task<(int Code, string Output, bool Truncated)> RunAsync(
+    private static async Task<(int Code, string Output, string ErrorOutput, bool Truncated)> RunAsync(
         ProcessStartInfo info, CancellationToken token)
     {
         using var process = new Process { StartInfo = info };
@@ -118,7 +139,7 @@ internal static class ClamAvIntegration
         var a = await stdout;
         var b = await stderr;
         // Error output is never surfaced raw; it may contain local user paths.
-        return (process.ExitCode, a.Text, a.Truncated || b.Truncated);
+        return (process.ExitCode, a.Text, b.Text, a.Truncated || b.Truncated);
     }
 
     private static async Task<(string Text, bool Truncated)> ReadCappedAsync(
@@ -167,13 +188,10 @@ internal static class ClamAvIntegration
             string config = EnsureFreshClamConfig();
             var command = MakeProcess(Path.Combine(installFolder, "freshclam.exe"),
                 ["--config-file=" + config]);
-            var (code, output, truncated) = await RunAsync(command, token);
+            var (code, output, errorOutput, truncated) = await RunAsync(command, token);
             if (code != 0 || truncated || !HasDefinitions())
                 return new(false, "FreshClam could not complete an official signature update. Check its local configuration, connection, or vendor rate limit.", null);
-            var info = new DirectoryInfo(DefinitionsDirectory)
-                .EnumerateFiles().Where(f => f.Extension is ".cvd" or ".cld")
-                .OrderByDescending(f => f.LastWriteTimeUtc).FirstOrDefault();
-            return new(true, "Official ClamAV signatures are available. Updated via FreshClam.", info?.LastWriteTimeUtc);
+            return new(true, "Official ClamAV daily signatures are fresh enough for scanning. Updated via FreshClam.", LatestDailyDefinitionUtc());
         }
         catch (OperationCanceledException) { throw; }
         catch { return new(false, "ClamAV signature update failed. Review the local FreshClam configuration.", null); }
@@ -185,24 +203,32 @@ internal static class ClamAvIntegration
         if (!IsValidInstallFolder(installFolder))
             return new(false, Array.Empty<ClamDetection>(), "Select an official ClamAV installation first.");
         if (!HasDefinitions())
-            return new(false, Array.Empty<ClamDetection>(), "Virus definitions not installed. Select Update definitions first.");
+            return new(false, Array.Empty<ClamDetection>(), "Fresh official daily virus definitions are missing or over seven days old. Update definitions before scanning.");
         string absolute = Path.GetFullPath(target);
         if (!File.Exists(absolute) && !Directory.Exists(absolute))
             return new(false, Array.Empty<ClamDetection>(), "Selected path does not exist.");
+        var coverage = ClamScanSafety.InspectTarget(absolute);
+        if (!coverage.Eligible)
+            return new(false, Array.Empty<ClamDetection>(),
+                "INCOMPLETE: Target contains inaccessible, oversized, linked or unsupported files. No clean verdict.");
         var args = new[]
         {
             "--database=" + DefinitionsDirectory,
-            "--recursive", "--infected", "--no-summary",
+            "--official-db-only=yes", "--recursive", "--infected",
+            "--alert-exceeds-max=yes", "--alert-encrypted=yes",
+            "--follow-dir-symlinks=0", "--follow-file-symlinks=0",
             "--max-filesize=100M", "--max-scansize=250M", absolute
         };
         try
         {
-            var (exit, output, overflow) = await RunAsync(
+            var (exit, output, stderr, overflow) = await RunAsync(
                 MakeProcess(Path.Combine(installFolder, "clamscan.exe"), args), token);
             var listed = ParseHits(output);
             var hits = new List<ClamDetection>();
-            bool incomplete = overflow || listed.Count >= 300 || exit is not (0 or 1) ||
-                output.Contains("ERROR", StringComparison.OrdinalIgnoreCase);
+            bool incomplete = listed.Count >= 300 ||
+                !ClamScanSafety.IsSuccessfulCoverage(exit, output, stderr, overflow,
+                    coverage, listed.Count) ||
+                listed.Any(x => ClamScanSafety.IsCoverageHeuristic(x.Signature));
             foreach (var item in listed)
             {
                 try
@@ -219,7 +245,7 @@ internal static class ClamAvIntegration
             if (exit == 1 && listed.Count == 0) incomplete = true;
             return new(!incomplete, hits,
                 incomplete ? "Incomplete ClamAV scan: review file coverage and engine errors." :
-                hits.Count > 0 ? "ClamAV identified malware signatures; review before quarantine." :
+                hits.Count > 0 ? "ClamAV reported signature matches and/or heuristic indicators; review before quarantine." :
                 "No ClamAV signatures detected in scanned content; this does not establish safety.");
         }
         catch (OperationCanceledException) { throw; }

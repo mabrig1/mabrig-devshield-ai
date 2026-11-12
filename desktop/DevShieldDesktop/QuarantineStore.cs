@@ -65,7 +65,9 @@ internal static class QuarantineStore
 
     internal static bool IsEligible(ClamDetection detection) =>
         IsAllowed(detection.FilePath, existing: true) &&
-        detection.Sha256.Length == 64;
+        ClamScanSafety.IsQuarantinableSignature(detection.Signature) &&
+        detection.Sha256.Length == 64 &&
+        detection.Sha256.All(Uri.IsHexDigit);
 
     private static string FileFor(string id) => Path.Combine(Root, id + ".quarantined");
     private static string RecordFor(string id) => Path.Combine(Root, id + ".json");
