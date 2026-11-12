@@ -154,4 +154,40 @@ internal static class QuarantineStore
         File.Move(data, entry.OriginalPath); // no overwrite; never runs the restored file.
         File.Delete(record);
     }
+
+    // Smoke test runs only on an explicit --self-test-malware invocation.
+    // It creates a harmless file in the caller's Downloads, then verifies reversible
+    // same-drive quarantine/restore. It never touches existing user files.
+    internal static bool SelfTest()
+    {
+        string downloads = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        string name = ".devshield-benign-self-test-" + Guid.NewGuid().ToString("N") + ".txt";
+        string file = Path.Combine(downloads, name);
+        bool madeDownloads = !Directory.Exists(downloads);
+        QuarantineEntry? saved = null;
+        try
+        {
+            Directory.CreateDirectory(downloads);
+            File.WriteAllText(file, "MABRIG DEVSHIELD BENIGN QUARANTINE TEST; NOT MALWARE");
+            var fake = new ClamDetection(file, "DevShield.Benign.SelfTest", Hash(file));
+            if (!IsEligible(fake)) return false;
+            saved = Quarantine(fake);
+            if (File.Exists(file) || !File.Exists(FileFor(saved.Id))) return false;
+            Restore(saved);
+            if (!File.Exists(file) || File.Exists(FileFor(saved.Id))) return false;
+            return true;
+        }
+        catch { return false; }
+        finally
+        {
+            // Preserve the quarantine if a restore failed; never delete an
+            // isolated file merely because a test encountered an error.
+            try { if (File.Exists(file)) File.Delete(file); } catch { }
+            if (madeDownloads)
+            {
+                try { Directory.Delete(downloads, recursive: false); } catch { }
+            }
+        }
+    }
 }
