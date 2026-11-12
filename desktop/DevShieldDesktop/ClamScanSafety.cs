@@ -72,6 +72,7 @@ internal static class ClamScanSafety
             if ((attrs & FileAttributes.ReparsePoint) != 0)
                 return new(false, 0, 0, "Reparse point or symlink target is not eligible.");
             int seen = 0;
+            int files = 0;
             long total = 0;
             var dirs = new Stack<(string Directory, int Depth)>();
             if ((attrs & FileAttributes.Directory) != 0)
@@ -83,22 +84,22 @@ internal static class ClamScanSafety
             {
                 var (dir, depth) = dirs.Pop();
                 if (depth > MaxDepth)
-                    return new(false, seen, total, "Folder nesting exceeds bounded scan depth.");
+                    return new(false, files, total, "Folder nesting exceeds bounded scan depth.");
                 foreach (var item in Directory.EnumerateFileSystemEntries(dir))
                 {
                     var attributes = File.GetAttributes(item);
                     if ((attributes & FileAttributes.ReparsePoint) != 0)
-                        return new(false, seen, total, "Scan target contains a symlink or junction.");
+                        return new(false, files, total, "Scan target contains a symlink or junction.");
                     if ((attributes & FileAttributes.Directory) != 0)
                     {
                         if (seen++ >= MaxPaths)
-                            return new(false, seen, total, "Scan target exceeds file/directory count limit.");
+                            return new(false, files, total, "Scan target exceeds file/directory count limit.");
                         dirs.Push((item, depth + 1));
                     }
                     else InspectFile(item);
                 }
             }
-            return new(true, seen, total, "Target files are within configured scanner limits.");
+            return new(true, files, total, "Target files are within configured scanner limits.");
 
             void InspectFile(string file)
             {
@@ -110,6 +111,7 @@ internal static class ClamScanSafety
                     throw new IOException("File exceeds scanner's 100 MiB cap");
                 if (++seen > MaxPaths || f.Length + total > MaxTotalBytes)
                     throw new IOException("Aggregate scan size or file count cap exceeded");
+                files++;
                 total += f.Length;
             }
         }
