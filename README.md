@@ -790,3 +790,7 @@ See [docs/PRICING.md](docs/PRICING.md), [SUPPORT.md](SUPPORT.md), [PRIVACY.md](P
 **Sales & support:** mabrig@mabrigkorie.org
 
 © 2026 MABRIG Technologies.
+
+## Experimental local Scan API and cloud scan credits
+
+See [Scan API and credit metering](docs/SCAN-API-CREDITS.md). Localhost-only scans keep source on the developer's machine; the Cloudflare Worker currently accepts bounded report metadata, not source, and is **not** a deployed paid scanning service.
