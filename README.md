@@ -794,3 +794,7 @@ See [docs/PRICING.md](docs/PRICING.md), [SUPPORT.md](SUPPORT.md), [PRIVACY.md](P
 ## Experimental reachability evidence and organization policy foundations
 
 An opt-in [CodeQL source-to-sink evidence importer and tenant-scoped organization policy API](docs/REACHABILITY-ORG-POLICY-FOUNDATIONS.md) are under review. Neither is a native taint solver or a deployed GitHub App; existing scan and merge gates are unchanged.
+
+## Experimental offline Endpoint Threat Guard
+
+A read-only, developer-focused [endpoint threat preflight CLI](docs/ENDPOINT-THREAT-GUARD.md) can review untrusted project directories, files, and bounded archive metadata without running them. It is **not general antivirus, real-time EDR, a quarantine agent, or a signed desktop installer**. Review the documented limits before using results for security decisions.
