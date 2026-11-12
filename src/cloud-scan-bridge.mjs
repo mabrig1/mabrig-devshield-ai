@@ -92,10 +92,59 @@ export function cloudEndpoint(origin, mode) {
   }
   return url.origin + '/v1/scan-reports/' + mode;
 }
+
+function ensureKeys(value, keys, name) {
+  if (!value || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype ||
+      Object.keys(value).some(k => !keys.includes(k)) ||
+      keys.some(k => !Object.hasOwn(value, k))) {
+    throw Error('Privacy contract violated: unexpected ' + name + ' fields');
+  }
+}
+export function validatePrivateCloudPayload(prepared) {
+  if (!prepared || typeof prepared !== 'object') throw Error('Prepared report required');
+  const data = prepared.payload;
+  ensureKeys(data, ['schemaVersion', 'scanType', 'tool', 'repository', 'revision', 'delivery', 'summary', 'findings'], 'report');
+  if (data.schemaVersion !== 1 || !MODES.has(data.scanType)) throw Error('Unsupported report type');
+  ensureKeys(data.tool, ['version'], 'tool');
+  ensureKeys(data.repository, ['fullName'], 'repository');
+  validRepo(data.repository.fullName);
+  ensureKeys(data.revision, ['headSha'], 'revision');
+  ensureKeys(data.delivery, ['runId'], 'delivery');
+  if (data.revision.headSha !== null || data.delivery.runId !== null) {
+    throw Error('Unexpected revision or delivery metadata');
+  }
+  ensureKeys(data.summary, ['riskLevel', 'riskScore'], 'summary');
+  if (!['critical', 'high', 'medium', 'low'].includes(data.summary.riskLevel) ||
+      !Number.isSafeInteger(data.summary.riskScore) ||
+      data.summary.riskScore < 0 || data.summary.riskScore > 100) {
+    throw Error('Invalid summary');
+  }
+  if (!Array.isArray(data.findings) || data.findings.length > MAX_FINDINGS) {
+    throw Error('Invalid findings count');
+  }
+  for (const item of data.findings) {
+    ensureKeys(item, ['fingerprint', 'rule', 'severity', 'category', 'confidence'], 'finding');
+    if (!/^[0-9a-f]{64}$/.test(item.fingerprint) ||
+        typeof item.rule !== 'string' || !item.rule || item.rule.length > 120 ||
+        typeof item.category !== 'string' || item.category.length > 80 ||
+        !Object.hasOwn(PRIORITY, item.severity) ||
+        !['heuristic', 'contextual', 'direct', 'high', 'medium', 'low'].includes(item.confidence)) {
+      throw Error('Invalid private finding');
+    }
+  }
+  if (typeof prepared.idempotencyKey !== 'string' ||
+      !/^[A-Za-z0-9_.:-]{8,128}$/.test(prepared.idempotencyKey)) {
+    throw Error('Invalid idempotency key');
+  }
+  if (Buffer.byteLength(JSON.stringify(data), 'utf8') > MAX_REPORT_BYTES) {
+    throw Error('Report exceeds cloud byte cap');
+  }
+  return true;
+}
 export async function uploadCloudReport(prepared, {
   origin, apiKey, fetchImpl = fetch, timeoutMs = 10000
 } = {}) {
-  if (!prepared || !prepared.payload || prepared.payload.schemaVersion !== 1) throw Error('Prepared cloud report required');
+  validatePrivateCloudPayload(prepared);
   const url = cloudEndpoint(origin, prepared.payload.scanType);
   if (typeof apiKey !== 'string' || !KEY.test(apiKey)) throw Error('Set a valid DevShield Cloud API key');
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 30000)
