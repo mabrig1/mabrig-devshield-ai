@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>DevShield-Desktop</AssemblyName>
+    <RootNamespace>Mabrig.DevShieldDesktop</RootNamespace>
+    <Version>0.2.0</Version>
+    <Company>MABRIG Technologies</Company>
+    <Product>DevShield Endpoint Threat Guard</Product>
+    <Description>Offline developer-oriented static threat preflight. Not a replacement for antivirus.</Description>
+  </PropertyGroup>
+</Project>

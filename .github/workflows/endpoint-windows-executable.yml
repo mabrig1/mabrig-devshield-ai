@@ -1,0 +1,111 @@
+name: Endpoint Guard Windows EXE (unsigned review artifact)
+
+on:
+  pull_request:
+    paths:
+      - "bin/endpoint-shield.mjs"
+      - "src/endpoint-shield.mjs"
+      - "src/executable-inspection.mjs"
+      - "src/repository-preflight.mjs"
+      - "src/rules.mjs"
+      - "test/endpoint-shield.test.mjs"
+      - "test/executable-inspection.test.mjs"
+      - ".github/workflows/endpoint-windows-executable.yml"
+      - "desktop/DevShieldDesktop/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-exe:
+    name: Build and smoke-test unsigned Windows x64 portable scanner
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Bun compiler
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Compile portable scanner (no installer, no publishing)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          bun build --compile --target=bun-windows-x64 ./bin/endpoint-shield.mjs --outfile dist/DevShield-Endpoint.exe
+          if ($LASTEXITCODE -ne 0) { throw "Windows standalone build failed" }
+          $exe = (Resolve-Path "dist/DevShield-Endpoint.exe").Path
+          if (!(Test-Path $exe)) { throw "Executable not generated" }
+          Write-Host "Created unsigned executable."
+      - name: Verify compiled EXE detects safe static test pattern
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/DevShield-Endpoint.exe").Path
+          & $exe --help
+          if ($LASTEXITCODE -ne 0) { throw "Compiled EXE --help failed" }
+          $fixture = Join-Path $env:RUNNER_TEMP "devshield-fixture.ps1"
+          Set-Content -Path $fixture -Value 'powershell.exe -EncodedCommand TEST' -Encoding utf8
+          # Exit 1 is the expected security finding, not a workflow error.
+          $PSNativeCommandUseErrorActionPreference = $false
+          $output = & $exe --path $fixture --fail-on high --format json
+          $code = $LASTEXITCODE
+          $global:LASTEXITCODE = 0
+          if ($code -ne 1) { throw "Expected severity gate exit 1 but got $code" }
+          $report = ($output -join [Environment]::NewLine) | ConvertFrom-Json
+          if ($report.complete -ne $true) { throw "Scanner did not fully inspect harmless fixture" }
+          if (-not (@($report.findings | Where-Object { $_.rule -eq 'powershell-encoded-command' }).Count -ge 1)) {
+            throw "Expected threat indicator not detected"
+          }
+          Remove-Item -Path $fixture -Force
+      - name: Record SHA-256 checksum for review
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Path "dist/DevShield-Endpoint.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  DevShield-Endpoint.exe" | Out-File -FilePath "dist/SHA256SUMS.txt" -Encoding ascii
+          Write-Host "Generated local checksum file (unsigned binary)."
+      - name: Upload review-stage portable EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevShield-Endpoint-Windows-x64-UNSIGNED
+          path: |
+            dist/DevShield-Endpoint.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Install .NET 8 SDK for native Windows desktop companion
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish portable Windows desktop app and bundle trusted scanner
+        shell: pwsh
+        run: |
+          dotnet restore desktop/DevShieldDesktop/DevShieldDesktop.csproj --runtime win-x64
+          if ($LASTEXITCODE -ne 0) { throw ".NET restore failed" }
+          dotnet publish desktop/DevShieldDesktop/DevShieldDesktop.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --property:PublishSingleFile=true --property:IncludeNativeLibrariesForSelfExtract=true --property:DebugType=None --property:DebugSymbols=false --output dist/desktop
+          if ($LASTEXITCODE -ne 0) { throw "Windows GUI publish failed" }
+          if (!(Test-Path dist/desktop/DevShield-Desktop.exe)) { throw "GUI executable missing" }
+          Copy-Item dist/DevShield-Endpoint.exe dist/desktop/DevShield-Endpoint.exe
+          Copy-Item desktop/DevShieldDesktop/README.md dist/desktop/README.md
+          $gui = (Resolve-Path "dist/desktop/DevShield-Desktop.exe").Path
+          & $gui --version
+          if ($LASTEXITCODE -ne 0) { throw "GUI executable startup smoke failed" }
+          & $gui --self-test-malware
+          if ($LASTEXITCODE -ne 0) { throw "ClamAV result parsing or reversible quarantine self-test failed" }
+          $files = @("DevShield-Desktop.exe", "DevShield-Endpoint.exe")
+          $sums = foreach ($name in $files) {
+            $hash = (Get-FileHash -Path ("dist/desktop/" + $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $name"
+          }
+          $sums | Set-Content -Path dist/desktop/SHA256SUMS.txt -Encoding ascii
+          Compress-Archive -Path dist/desktop/* -DestinationPath dist/DevShield-Desktop-Windows-x64-UNSIGNED.zip -CompressionLevel Optimal
+          if (!(Test-Path dist/DevShield-Desktop-Windows-x64-UNSIGNED.zip)) { throw "Desktop package missing" }
+      - name: Upload unsigned Windows desktop graphical application for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevShield-Desktop-Windows-x64-UNSIGNED
+          path: dist/DevShield-Desktop-Windows-x64-UNSIGNED.zip
+          if-no-files-found: error
+          retention-days: 7
