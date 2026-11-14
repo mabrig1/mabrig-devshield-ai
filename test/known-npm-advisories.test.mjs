@@ -28,6 +28,7 @@ test('exact SemVer and prerelease comparisons preserve boundaries', () => {
   assert.equal(compareVersions('1.4.0-beta.9', '1.4.0-beta.18'), -1);
   assert.equal(compareVersions('1.4.0-beta.18', '1.4.0-beta.18+build.2'), 0);
   assert.equal(compareVersions('11.0.0-alpha.6', '11.0.0-alpha.5'), 1);
+  assert.equal(compareVersions('1.0.0-beta.999999999999999999999', '1.0.0-beta.1000000000000000000000'), -1);
   for (const invalid of ['^16.4.0', 'v16.4.0', '16.4', '1.4.0-beta.018', '99999999999.0.0', '1.1.0/something']) {
     assert.equal(parseExactVersion(invalid), null);
   }
