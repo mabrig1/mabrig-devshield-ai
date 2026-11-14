@@ -54,6 +54,10 @@ inputs:
     description: 'Use GitHub dependency review on pull requests: auto, true, or false.'
     required: false
     default: ''
+  known-advisories:
+    description: 'Offline vetted November 2026 npm advisory snapshot: off (default), advisory, or enforce. Requires installed-version npm lockfile evidence; no package execution or registry access.'
+    required: false
+    default: 'off'
   dependency-severity:
     description: 'Minimum dependency vulnerability severity to report: critical, high, medium/moderate, low.'
     required: false
@@ -238,6 +242,18 @@ outputs:
   dependency-review-status:
     description: 'Dependency review status: success, unavailable, skipped, disabled, or fixture.'
     value: ${{ steps.devshield.outputs.dependency-review-status }}
+  known-advisories-state:
+    description: 'Known npm advisory scan status: reviewed, incomplete, or not-present.'
+    value: ${{ steps.known-advisories.outputs.known-advisories-state }}
+  known-advisories-findings:
+    description: 'Number of curated security advisory installed-version matches; does not establish exploitability.'
+    value: ${{ steps.known-advisories.outputs.known-advisories-findings }}
+  known-advisories-report-file:
+    description: 'Path to offline known advisory JSON report.'
+    value: ${{ steps.known-advisories.outputs.known-advisories-report-file }}
+  known-advisories-sarif-file:
+    description: 'Path to offline known advisory SARIF report.'
+    value: ${{ steps.known-advisories.outputs.known-advisories-sarif-file }}
   legal-compliance-state:
     description: 'Legal & Compliance Shield mode/state: disabled, advisory, or enforce.'
     value: ${{ steps.devshield.outputs.legal-compliance-state }}
@@ -549,6 +565,15 @@ runs:
         INPUT_CLOUD_TOKEN: ${{ inputs.cloud-token }}
         INPUT_CLOUD_REQUIRED: ${{ inputs.cloud-required }}
       run: node "$GITHUB_ACTION_PATH/src/index.mjs"
+    - id: known-advisories
+      if: ${{ inputs.known-advisories != 'off' }}
+      shell: bash
+      env:
+        INPUT_KNOWN_ADVISORIES: ${{ inputs.known-advisories }}
+        INPUT_REPORT_DIR: ${{ inputs.report-dir }}
+      run: |
+        report_dir="${INPUT_REPORT_DIR:-.devshield}"
+        node "$GITHUB_ACTION_PATH/bin/known-advisories.mjs" --mode "$INPUT_KNOWN_ADVISORIES" --report-dir "$report_dir" --fail-on critical
     - id: api-trust
       if: ${{ inputs.api-trust != 'off' }}
       shell: bash
