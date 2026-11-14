@@ -218,7 +218,7 @@ export function scanKnownNpmAdvisories(inventory, { maxFindings = 1000 } = {}) {
     a.location.localeCompare(b.location) || a.advisoryId.localeCompare(b.advisoryId));
   return {
     schemaVersion: 1, tool: 'MABRIG DevShield Known npm Advisories',
-    asOf: CATALOG_AS_OF, mode: 'offline-curated-snapshot', status: truncated ? 'incomplete' : 'reviewed',
+    asOf: CATALOG_AS_OF, mode: 'offline-curated-snapshot', status: (truncated || unassessedCandidateVersions) ? 'incomplete' : 'reviewed',
     scope: 'curated subset of npm advisories; not a complete live vulnerability database',
     coverage: {
       networkAccess: false, codeExecution: false,
@@ -249,7 +249,7 @@ export function knownAdvisoriesSarif(report) {
           installedVersion: f.version, package: f.package, jsonPointer: f.evidence.jsonPointer,
           advisoryUrl: f.advisoryUrl, fixedVersions: f.fixedVersions,
           confidence: f.confidence, severity: f.severity,
-          exploitationConfirmed: false
+          exploitabilityAssessed: false
         }
       })) }]
   };
