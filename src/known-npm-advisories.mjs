@@ -146,7 +146,9 @@ export function compareVersions(a, b) {
     const aId = x.pre[i], bId = y.pre[i];
     if (aId === bId) continue;
     const aNum = /^\d+$/.test(aId), bNum = /^\d+$/.test(bId);
-    if (aNum && bNum) return Number(aId) < Number(bId) ? -1 : 1;
+    if (aNum && bNum) return aId.length !== bId.length
+      ? (aId.length < bId.length ? -1 : 1)
+      : (aId < bId ? -1 : 1);
     if (aNum !== bNum) return aNum ? -1 : 1;
     return aId < bId ? -1 : 1;
   }
