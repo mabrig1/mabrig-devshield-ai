@@ -106,6 +106,7 @@ test('npm aliases, nested installations and workspace links are handled without 
   assert.equal(report.summary.affectedInstallations, 2);
   assert.equal(report.summary.excludedLocalInstallations, 2);
   assert.equal(report.summary.unassessedCandidateVersions, 1);
+  assert.equal(report.status, 'incomplete');
   assert.ok(report.findings.every(f => f.package === 'next'));
   assert.ok(!JSON.stringify(report).includes(secret));
   assert.ok(report.findings.every(f => f.evidence.jsonPointer.startsWith('/packages/')));
@@ -135,7 +136,7 @@ test('SARIF includes advisory link, stable fingerprint and no pretend source lin
   assert.equal(r.locations[0].physicalLocation.artifactLocation.uri, 'package-lock.json');
   assert.equal(r.locations[0].physicalLocation.region, undefined);
   assert.equal(r.properties.confidence, 'installed-lockfile-version-match-only');
-  assert.equal(r.properties.exploitationConfirmed, false);
+  assert.equal(r.properties.exploitabilityAssessed, false);
 });
 
 test('CLI writes JSON+SARIF, advisory never blocks and enforce returns threshold status', t => {
