@@ -10,6 +10,12 @@ MABRIG DevShield AI is a dependency-free GitHub Action that reviews pull-request
 
 It runs without an AI key. Teams can optionally add OpenRouter for a second-pass contextual review after DevShield filters excluded paths and redacts common secret formats.
 
+## November 2026 modern-app vulnerability checks (review-stage)
+
+**New opt-in capability:** an offline curated npm installed-version advisory scanner covers critical React Server Components, Next.js, Mongoose, Better Auth, TanStack Start, DOMPurify and Storybook issues. It produces JSON/SARIF, checks npm lockfile v2/v3 without executing code, and distinguishes a version match from confirmed exploitability. It is **not** a live CVE feed; Action enforcement defaults to **off** pending review.
+
+Run from the target application's working directory: `node /path/to/devshield/bin/known-advisories.mjs --mode advisory`. See [November 2026 Modern-App Advisory Shield](docs/MODERN-APP-ADVISORIES-2026-11.md) for exact affected releases, verified advisory links and opt-in CI configuration.
+
 ## Why DevShield
 
 DevShield is built around one question: **does this change make the repository meaningfully riskier?**
