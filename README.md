@@ -50,6 +50,12 @@ Version 3.2 extends the embedded Runtime WAF into a WAAP (Web Application & API 
 - **MCP Authorization & Protocol Guard (v2.7)** for insecure OAuth endpoints, embedded OAuth/bearer credentials, deprecated DCR/SSE configurations, and strict-mode overbroad OAuth scopes.
 - **Runtime DNS Pinning (v2.8)** resolves and validates the target immediately before each runtime request, forces the socket to that approved IP, disables connection reuse, preserves TLS/SNI hostname validation, and rejects public-to-private DNS rebinding.
 
+## Incident Signals (experimental)
+
+New offline, **read-only** triage for five early warning categories: email-sending anomalies, unapproved outbound connections, unrecognised account activity, suspicious VPS processes, and unauthorised redirect hosts. Accepts *only operator-supplied aggregate JSON*, not customer logs, credentials or application source. This is not live monitoring and does not establish that an intrusion occurred.
+
+Run `npm run incident:signals -- --input ./local-aggregate.json` after preparing your private summary; see [Incident Signals guide](docs/INCIDENT-SIGNALS.md). No cloud integration or enforcement is enabled.
+
 ## Quick start
 
 ```yaml

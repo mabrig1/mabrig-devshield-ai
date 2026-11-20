@@ -3,6 +3,7 @@ set -euo pipefail
 
 ACTION_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+node --test "$ACTION_ROOT/test/incident-signals.test.mjs"
 node --test "$ACTION_ROOT/test/cli-arguments.test.mjs"
 node --test "$ACTION_ROOT/test/repository-preflight.test.mjs"
 node --test "$ACTION_ROOT/test/agentic-engine.test.mjs"
