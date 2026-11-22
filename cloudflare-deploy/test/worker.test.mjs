@@ -51,12 +51,12 @@ test('homepage renders an accessible interactive local preview, not Hello World'
   assert.match(html, /id="scanner"/);
   assert.match(html, /id="assistant"/);
   assert.match(html, /id="briefing-answer"/);
-  assert.match(html, /security-briefing\\.js/);
+  assert.match(html, /security-briefing\.js/);
   assert.match(html, /data-briefing-hours="6"/);
   assert.match(html, /data-briefing-hours="7"/);
   assert.match(html, /data-briefing-hours="12"/);
   assert.match(html, /data-briefing-hours="24"/);
-  assert.match(response.headers.get('permissions-policy'), /microphone=\\(self\\)/);
+  assert.match(response.headers.get('permissions-policy'), /microphone=\(self\)/);
   assert.match(html, /id="scan-button"/);
   assert.match(html, /No code upload/);
   assert.doesNotMatch(html, /Hello world/);
