@@ -43,7 +43,7 @@ test('homepage renders an accessible interactive local preview, not Hello World'
   const response = await worker.fetch(new Request('https://devshield.mabrigkorie.org/'), { ASSETS: assets });
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /text\/html/);
-  assert.match(response.headers.get('content-security-policy'), /connect-src 'none'/);
+  assert.match(response.headers.get('content-security-policy'), /connect-src 'self'/);
   assert.match(response.headers.get('content-security-policy'), /script-src 'self'/);
   assert.doesNotMatch(response.headers.get('content-security-policy'), /unsafe-inline/);
   const html = await response.text();
@@ -52,6 +52,10 @@ test('homepage renders an accessible interactive local preview, not Hello World'
   assert.match(html, /id="assistant"/);
   assert.match(html, /id="briefing-answer"/);
   assert.match(html, /security-briefing\\.js/);
+  assert.match(html, /data-briefing-hours="6"/);
+  assert.match(html, /data-briefing-hours="7"/);
+  assert.match(html, /data-briefing-hours="12"/);
+  assert.match(html, /data-briefing-hours="24"/);
   assert.match(response.headers.get('permissions-policy'), /microphone=\\(self\\)/);
   assert.match(html, /id="scan-button"/);
   assert.match(html, /No code upload/);
