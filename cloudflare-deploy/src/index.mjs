@@ -13,13 +13,14 @@ const html = String.raw`<!doctype html>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/app.css">
   <script defer src="/app.js"></script>
+  <script type="module" src="/security-briefing.js"></script>
 </head>
 <body>
   <a class="sr-only" href="#main">Skip to content</a>
   <header class="topbar"><div class="shell toprow">
     <a class="brand" href="/" aria-label="DevShield AI home"><span class="brandmark" aria-hidden="true">✓</span><span><small>MABRIG TECHNOLOGIES</small><strong>DevShield <span class="brand-accent">AI</span></strong></span></a>
     <nav class="nav" aria-label="Main navigation">
-      <a href="#capabilities">Capabilities</a><a href="#scanner">Local scanner</a><a href="#getting-started">Get started</a><a href="#status">Platform status</a>
+      <a href="#capabilities">Capabilities</a><a href="#scanner">Local scanner</a><a href="#assistant">Voice assistant</a><a href="#getting-started">Get started</a><a href="#status">Platform status</a>
       <a class="button ghost" href="https://github.com/mabrig1/mabrig-devshield-ai" target="_blank" rel="noopener noreferrer">View GitHub ↗</a>
     </nav>
   </div></header>
@@ -80,6 +81,38 @@ const html = String.raw`<!doctype html>
         </div>
       </div>
     </section>
+    <section class="section shell" id="assistant">
+      <div class="overline">READ-ONLY · VOICE OPTIONAL</div><h2 class="section-title">Ask DevShield about your scan</h2>
+      <p class="section-desc">This pilot explains only the current browser-local heuristic scan. It cannot see live Cloudflare events, website attacks, traffic sources or account data. Those answers are <strong>Unknown</strong> until a protected data connection is independently approved and built.</p>
+      <div class="workstation">
+        <div class="workstation-head"><div><h3>DevShield security briefing</h3><p>Real local findings · no made-up security statistics · no autonomous changes</p></div><span class="privacy">● Read-only</span></div>
+        <div class="assistant-grid">
+          <div class="assistant-pane">
+            <label class="field-title" for="briefing-question">Your question</label>
+            <input id="briefing-question" type="text" maxlength="240" autocomplete="off" placeholder="What did the local scan find?">
+            <div class="controls">
+              <button id="briefing-ask" type="button" class="button primary">Ask DevShield</button>
+              <button id="briefing-mic" type="button" class="button">🎙 Speak question</button>
+              <button id="briefing-stop" type="button" class="button">Stop voice</button>
+            </div>
+            <p class="hint">Microphone access is optional and requested only when you press Speak. Browser speech recognition may use a third-party speech provider. Do not dictate passwords, API keys, private source code or confidential information. Use text if you prefer.</p>
+            <div class="briefing-suggestions" aria-label="Suggested security questions">
+              <button type="button" data-briefing-question="What did the scan find?">Summarize scan</button>
+              <button type="button" data-briefing-question="Which findings are critical?">Critical findings</button>
+              <button type="button" data-briefing-question="What should I do next?">Next safe step</button>
+              <button type="button" data-briefing-question="Were my websites attacked today?">Live attacks?</button>
+            </div>
+          </div>
+          <div class="assistant-pane" aria-live="polite">
+            <div class="field-title">Security answer</div>
+            <p id="briefing-answer" class="briefing-answer">Run the local scan above, then ask a question about its findings.</p>
+            <p id="briefing-source" class="hint">No scan available</p>
+            <div class="controls"><button id="briefing-read" type="button" class="button" disabled>🔊 Read answer aloud</button></div>
+            <p id="briefing-status" class="hint" role="status">Live security telemetry is not connected.</p>
+          </div>
+        </div>
+      </div>
+    </section>
     <section class="section shell" id="getting-started">
       <div class="overline">WORK WITH YOUR EXISTING STACK</div><h2 class="section-title">From a local project to safer builds.</h2>
       <div class="steps">
@@ -113,7 +146,7 @@ const baseHeaders = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-frame-options': 'DENY',
-  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'permissions-policy': 'camera=(), microphone=(self), geolocation=(), payment=()',
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
 };
 function respond(content, type, status = 200, method = 'GET') {
@@ -145,7 +178,7 @@ export default {
     if (url.pathname === '/' || url.pathname === '/index.html') {
       return respond(html, 'text/html; charset=utf-8', 200, method);
     }
-    if (['/app.css', '/app.js', '/favicon.svg'].includes(url.pathname)) {
+    if (['/app.css', '/app.js', '/security-briefing.js', '/favicon.svg'].includes(url.pathname)) {
       if (!env.ASSETS || typeof env.ASSETS.fetch !== 'function') {
         return json({ error: 'assets_not_configured' }, 503, method);
       }
