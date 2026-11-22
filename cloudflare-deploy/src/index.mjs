@@ -1,6 +1,7 @@
 // Public informational DevShield entry point and browser-local heuristic preview.
 // Does not import Node scanner modules or expose any hosted scanning/billing APIs.
 // Source pasted in the browser is processed in /app.js; this Worker never receives it.
+import { fetchPublicVulnerabilities, SUPPORTED_HOURS } from './public-vulnerabilities.mjs';
 const github = 'https://github.com/mabrig1/mabrig-devshield-ai';
 const html = String.raw`<!doctype html>
 <html lang="en">
@@ -147,7 +148,7 @@ const baseHeaders = {
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-frame-options': 'DENY',
   'permissions-policy': 'camera=(), microphone=(self), geolocation=(), payment=()',
-  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
 };
 function respond(content, type, status = 200, method = 'GET') {
   return new Response(method === 'HEAD' ? null : content, {
@@ -183,6 +184,13 @@ export default {
         return json({ error: 'assets_not_configured' }, 503, method);
       }
       return env.ASSETS.fetch(request);
+    }
+    if (url.pathname === '/api/v1/public-vulnerabilities') {
+      if (method !== 'GET') return json({ error: 'method_not_allowed' }, 405, method);
+      const hours = Number(url.searchParams.get('hours'));
+      if (!SUPPORTED_HOURS.includes(hours)) return json({ error: 'unsupported_hours', supportedHours: SUPPORTED_HOURS }, 400, method);
+      const report = await fetchPublicVulnerabilities(hours);
+      return json(report, report.status === 'ok' ? 200 : 503, method);
     }
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/v1/')) {
       return json({ error: 'api_not_configured' }, 503, method);
