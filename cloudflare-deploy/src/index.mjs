@@ -97,6 +97,14 @@ const html = String.raw`<!doctype html>
               <button id="briefing-stop" type="button" class="button">Stop voice</button>
             </div>
             <p class="hint">Microphone access is optional and requested only when you press Speak. Browser speech recognition may use a third-party speech provider. Do not dictate passwords, API keys, private source code or confidential information. Use text if you prefer.</p>
+            <p class="field-title small-top">Check newly published vulnerabilities worldwide</p>
+            <div class="briefing-suggestions" aria-label="Worldwide public vulnerability lookback">
+              <button type="button" data-briefing-hours="6">Last 6 hours</button>
+              <button type="button" data-briefing-hours="7">Last 7 hours</button>
+              <button type="button" data-briefing-hours="12">Last 12 hours</button>
+              <button type="button" data-briefing-hours="24">Last 24 hours</button>
+            </div>
+            <p class="hint">Official NIST NVD data, not live attack counts. The provider may publish information later than an event occurred.</p>
             <div class="briefing-suggestions" aria-label="Suggested security questions">
               <button type="button" data-briefing-question="What did the scan find?">Summarize scan</button>
               <button type="button" data-briefing-question="Which findings are critical?">Critical findings</button>
@@ -108,6 +116,7 @@ const html = String.raw`<!doctype html>
             <div class="field-title">Security answer</div>
             <p id="briefing-answer" class="briefing-answer">Run the local scan above, then ask a question about its findings.</p>
             <p id="briefing-source" class="hint">No scan available</p>
+            <div id="briefing-public-items" class="briefing-public-items" aria-label="Cited public vulnerabilities"></div>
             <div class="controls"><button id="briefing-read" type="button" class="button" disabled>🔊 Read answer aloud</button></div>
             <p id="briefing-status" class="hint" role="status">Live security telemetry is not connected.</p>
           </div>
