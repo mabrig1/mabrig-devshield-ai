@@ -10,6 +10,7 @@ const assets = {
     const pathname = new URL(request.url).pathname;
     const file = pathname === '/app.css' ? '../public/app.css' :
       pathname === '/app.js' ? '../public/app.js' :
+      pathname === '/security-briefing.js' ? '../public/security-briefing.js' :
       pathname === '/favicon.svg' ? '../public/favicon.svg' : null;
     if (!file) return new Response('not found', { status: 404 });
     const content = readFileSync(new URL(file, import.meta.url));
@@ -34,7 +35,7 @@ test('Wrangler configuration publishes website assets under existing Worker name
   assert.equal(rootConfig.assets.run_worker_first, true);
   assert.ok(!('d1_databases' in config), 'Do not invent a D1 binding');
   assert.ok(!('vars' in config), 'Never put secrets into tracked vars');
-  for (const name of ['app.css', 'app.js', 'favicon.svg']) {
+  for (const name of ['app.css', 'app.js', 'security-briefing.js', 'favicon.svg']) {
     assert.ok(statSync(new URL('../public/' + name, import.meta.url)).size > 0);
   }
 });
@@ -42,12 +43,20 @@ test('homepage renders an accessible interactive local preview, not Hello World'
   const response = await worker.fetch(new Request('https://devshield.mabrigkorie.org/'), { ASSETS: assets });
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /text\/html/);
-  assert.match(response.headers.get('content-security-policy'), /connect-src 'none'/);
+  assert.match(response.headers.get('content-security-policy'), /connect-src 'self'/);
   assert.match(response.headers.get('content-security-policy'), /script-src 'self'/);
   assert.doesNotMatch(response.headers.get('content-security-policy'), /unsafe-inline/);
   const html = await response.text();
   assert.match(html, /DevShield AI/);
   assert.match(html, /id="scanner"/);
+  assert.match(html, /id="assistant"/);
+  assert.match(html, /id="briefing-answer"/);
+  assert.match(html, /security-briefing\.js/);
+  assert.match(html, /data-briefing-hours="6"/);
+  assert.match(html, /data-briefing-hours="7"/);
+  assert.match(html, /data-briefing-hours="12"/);
+  assert.match(html, /data-briefing-hours="24"/);
+  assert.match(response.headers.get('permissions-policy'), /microphone=\(self\)/);
   assert.match(html, /id="scan-button"/);
   assert.match(html, /No code upload/);
   assert.doesNotMatch(html, /Hello world/);
@@ -57,7 +66,7 @@ test('homepage renders an accessible interactive local preview, not Hello World'
   assert.equal(await head.text(), '');
 });
 test('public asset binding returns script and stylesheet', async () => {
-  for (const path of ['/app.css', '/app.js', '/favicon.svg']) {
+  for (const path of ['/app.css', '/app.js', '/security-briefing.js', '/favicon.svg']) {
     const response = await worker.fetch(new Request('https://devshield.mabrigkorie.org' + path), { ASSETS: assets });
     assert.equal(response.status, 200);
     assert.ok((await response.text()).length > 100);
