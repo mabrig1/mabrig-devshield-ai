@@ -1,5 +1,5 @@
 // Read-only questions about the most recent browser-local DevShield heuristic scan.
-// No network requests, credentials, live traffic data, or AI provider calls.
+// Browser-local scan remains offline. Optional public NVD lookups use a fixed same-origin read-only endpoint; no source code, credentials, or user reports are sent.
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low'];
 const countSeverity = findings => Object.fromEntries(
   SEVERITY_ORDER.map(level => [level, findings.filter(f => f.severity === level).length])
@@ -7,6 +7,17 @@ const countSeverity = findings => Object.fromEntries(
 const caveat = report => report.incomplete
   ? ' This preview was incomplete; skipped inputs may contain additional issues.'
   : ' This is a limited heuristic scan, not a verdict that the code or website is safe.';
+
+export function parseLookbackHours(question) {
+  const text = String(question ?? '').toLowerCase().replace(/[–—]/g, '-');
+  const match = text.match(/\b(6|7|12|24|six|seven|twelve|twenty[\s-]?four)\s*(?:hours?|hrs?|h)\b/i);
+  if (!match) return null;
+  const value = { six: 6, seven: 7, twelve: 12, 'twenty-four': 24, 'twenty four': 24 }[match[1]] ?? Number(match[1]);
+  return [6, 7, 12, 24].includes(value) ? value : null;
+}
+function requestsPrivateSecurity(question) {
+  return /\b(my|our|mine|us|we|website|websites|domain|domains|cloudflare|waf|firewall|server|servers|my company|our company)\b/i.test(question);
+}
 
 export function answerSecurityQuestion(question, report = null) {
   const q = String(question ?? '').trim().toLowerCase();
@@ -69,24 +80,87 @@ if (typeof document !== 'undefined') {
   const answerBox = byId('briefing-answer');
   const sourceBox = byId('briefing-source');
   const statusBox = byId('briefing-status');
+  const publicItems = byId('briefing-public-items');
   let lastLocalReport = null;
   let lastAnswer = '';
   let recognition = null;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+  function setAnswer(answer, source, status) {
+    lastAnswer = answer;
+    answerBox.textContent = answer;
+    sourceBox.textContent = source;
+    read.disabled = !('speechSynthesis' in window) || !answer;
+    statusBox.textContent = status;
+  }
+  function clearPublicItems() { publicItems.replaceChildren(); }
   function present(question) {
+    const hours = parseLookbackHours(question);
+    // Requests for private site activity must not fall back to public CVEs.
+    if (hours && !requestsPrivateSecurity(question)) {
+      void checkPublicVulnerabilities(hours);
+      return;
+    }
+    clearPublicItems();
     const response = answerSecurityQuestion(question, lastLocalReport);
-    lastAnswer = response.answer;
-    answerBox.textContent = response.answer;
-    sourceBox.textContent = response.source;
-    read.disabled = !('speechSynthesis' in window) || !lastAnswer;
-    statusBox.textContent = 'Read-only explanation. No security settings were changed.';
+    setAnswer(response.answer, response.source, 'Read-only explanation. No security settings were changed.');
+  }
+  async function checkPublicVulnerabilities(hours) {
+    if (![6, 7, 12, 24].includes(hours)) return;
+    clearPublicItems();
+    setAnswer('Checking newly published vulnerabilities in the official NIST database…', 'Source: NIST NVD', 'Public intelligence lookup requested.');
+    try {
+      // Only the selected duration goes to our public, read-only endpoint.
+      // No scanned source, credentials, file paths or report contents are transmitted.
+      const response = await fetch('/api/v1/public-vulnerabilities?hours=' + hours, {
+        method: 'GET', credentials: 'omit', headers: { accept: 'application/json' }
+      });
+      if (!response.ok) throw Error('official_feed_unavailable');
+      const report = await response.json();
+      if (report.status !== 'ok' || report.dataType !== 'newly-published-cves' ||
+          !Array.isArray(report.items) || !Number.isSafeInteger(report.reportedTotal) ||
+          report.window?.hours !== hours) throw Error('invalid_feed');
+      const count = report.reportedTotal;
+      const displayed = report.items.length;
+      let answer = 'NIST NVD reports ' + count + ' newly published CVE record(s) in its ' + hours +
+        '-hour UTC window ending ' + report.window.end + '. ';
+      answer += count === 0
+        ? 'No new records were returned in this source and window. This does NOT mean there were no cyberattacks worldwide.'
+        : 'These are published vulnerability records, not confirmed attacks. ';
+      if (count > 0 && displayed > 0) {
+        answer += 'Recent examples: ' + report.items.slice(0, 3).map(item => item.id).join(', ') + '. ';
+      }
+      if (report.partial) answer += 'The list is partial; check the official database for the complete set. ';
+      answer += 'Publication delays and coverage gaps are possible.';
+      for (const item of report.items.slice(0, 10)) {
+        if (!/^CVE-\d{4}-\d{4,}$/.test(item.id) ||
+            item.url !== 'https://nvd.nist.gov/vuln/detail/' + item.id) continue;
+        const line = document.createElement('p');
+        line.className = 'briefing-cve';
+        const link = document.createElement('a');
+        link.href = item.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = item.id;
+        const description = document.createElement('span');
+        description.textContent = ' · ' + item.severity + ' · Published ' + item.published + ' · ' + item.description;
+        line.append(link, description);
+        publicItems.append(line);
+      }
+      setAnswer(answer, 'NIST NVD · Source window ' + report.window.start + ' to ' + report.window.end,
+        'Read-only public vulnerability lookup. No private website telemetry accessed.');
+    } catch {
+      setAnswer('Unknown. The official public vulnerability feed could not be verified for the requested ' +
+        hours + '-hour window. This is not evidence that there were no vulnerabilities or attacks.',
+        'NIST NVD · Unavailable', 'Public lookup failed; no security settings changed.');
+    }
   }
 
   window.addEventListener('devshield:local-report', event => {
     lastLocalReport = event.detail && event.detail.schema === 'devshield.browser-preview.v1'
       ? event.detail : null;
     lastAnswer = '';
+    clearPublicItems();
     answerBox.textContent = lastLocalReport
       ? 'A local scan is ready. Ask what it found or which indicator to review first.'
       : 'Run the local scan above, then ask a question about its findings.';
@@ -99,6 +173,14 @@ if (typeof document !== 'undefined') {
   questionInput.addEventListener('keydown', event => {
     if (event.key === 'Enter') { event.preventDefault(); present(questionInput.value); }
   });
+  for (const button of document.querySelectorAll('[data-briefing-hours]')) {
+    button.addEventListener('click', () => {
+      const hours = Number(button.dataset.briefingHours);
+      if (![6, 7, 12, 24].includes(hours)) return;
+      questionInput.value = 'Check worldwide cybersecurity vulnerabilities in the last ' + hours + ' hours';
+      void checkPublicVulnerabilities(hours);
+    });
+  }
   for (const button of document.querySelectorAll('[data-briefing-question]')) {
     button.addEventListener('click', () => {
       questionInput.value = button.dataset.briefingQuestion;
