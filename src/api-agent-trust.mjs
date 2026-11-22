@@ -64,6 +64,10 @@ export function analyzeApiAgentTrustFile(file, content) {
   }
 
   const publicSecret = firstMatch(content, [
+    // Provider credentials can lack the word SECRET. Match known privileged
+    // names exactly so publishable/anon keys and labels are not swept in.
+    /\b(?:NEXT_PUBLIC|VITE|REACT_APP|PUBLIC)_(?:(?:OPENROUTER|OPENAI|ANTHROPIC|RESEND)_API_KEY|SUPABASE_SERVICE_ROLE_KEY)\b/g,
+    /\b(?:window|globalThis)\.(?:(?:OPENROUTER|OPENAI|ANTHROPIC|RESEND)_API_KEY|SUPABASE_SERVICE_ROLE_KEY)\b/g,
     /\b(?:NEXT_PUBLIC|VITE|REACT_APP|PUBLIC)_[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|JWT|PAYSTACK_SECRET|STRIPE_SECRET|API_SECRET|ACCESS_TOKEN)[A-Z0-9_]*\b/g,
     /\b(?:window|globalThis)\.[A-Z0-9_]*(?:SECRET|PRIVATE_KEY|PAYSTACK_SECRET|STRIPE_SECRET|JWT_SECRET)[A-Z0-9_]*\b/gi
   ]);
