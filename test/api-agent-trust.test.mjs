@@ -52,6 +52,52 @@ test('detects agent authority and model-output-to-shell patterns', () => {
   assert.ok(rules.has('agent-model-output-to-shell'));
 });
 
+test('detects privileged provider key names in public namespaces without revealing values', () => {
+  for (const prefix of ['NEXT_PUBLIC', 'VITE', 'REACT_APP', 'PUBLIC']) {
+    for (const key of ['OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'RESEND_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY']) {
+      const source = `const key = process.env.${prefix}_${key};\n`;
+      const findings = analyzeApiAgentTrustFile('src/client.ts', source);
+      assert.ok(findings.some(item => item.rule === 'api-client-secret-exposure'), `${prefix}_${key}`);
+    }
+  }
+  for (const target of ['window', 'globalThis']) {
+    const source = `// client configuration\n${target}.RESEND_API_KEY = "fixture-value-never-log";`;
+    const finding = analyzeApiAgentTrustFile('public/app.js', source)
+      .find(item => item.rule === 'api-client-secret-exposure');
+    assert.ok(finding, target);
+    assert.equal(finding.line, 2);
+    assert.equal(JSON.stringify(finding).includes('fixture-value-never-log'), false);
+  }
+});
+
+test('does not treat server credentials or intentionally public identifiers as provider secrets', () => {
+  for (const name of [
+    'OPENROUTER_API_KEY', 'RESEND_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY',
+    'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'VITE_PAYSTACK_PUBLIC_KEY',
+    'NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_OPENAI_API_KEY_LABEL',
+    'NOT_NEXT_PUBLIC_RESEND_API_KEY'
+  ]) {
+    const findings = analyzeApiAgentTrustFile('config.ts', `const config = process.env.${name};`);
+    assert.equal(findings.some(item => item.rule === 'api-client-secret-exposure'), false, name);
+  }
+});
+
+test('repository scan catches public provider references and emits value-free SARIF', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'devshield-public-provider-'));
+  try {
+    fs.writeFileSync(path.join(root, 'client.ts'), 'export const key = import.meta.env.VITE_OPENROUTER_API_KEY;');
+    const report = scanApiAgentTrust({ workspace: root });
+    assert.equal(report.counts.critical, 1);
+    assert.equal(shouldFailApiAgentTrust(report, 'critical'), true);
+    const result = apiAgentTrustSarif(report).runs[0].results[0];
+    assert.equal(result.ruleId, 'api-client-secret-exposure');
+    assert.equal(result.locations[0].physicalLocation.artifactLocation.uri, 'client.ts');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('does not flag a representative hardened API file', () => {
   const source = [
     'const cors = { "Access-Control-Allow-Origin": origin };',
