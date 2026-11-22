@@ -19,3 +19,7 @@
 .briefing-suggestions button{font:inherit;font-size:12px;border:1px solid #37536c;border-radius:30px;padding:8px 11px;background:#12283f;color:#cde7f6}
 .briefing-suggestions button:hover{background:#204563}
 @media(max-width:720px){.assistant-grid{grid-template-columns:1fr}.assistant-pane{padding:18px}.assistant-pane+.assistant-pane{border-left:0;border-top:1px solid var(--line)}}
+
+.briefing-public-items{max-height:350px;overflow:auto;margin:15px 0 0;padding:0 4px}
+.briefing-cve{margin:0;padding:9px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.65;overflow-wrap:anywhere;color:#aec3d7}
+.briefing-cve a{font-weight:800;color:#67e0d4;text-decoration:underline;text-underline-offset:3px}
