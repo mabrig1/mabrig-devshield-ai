@@ -204,6 +204,21 @@ async function runPreview() {
       disclaimer: 'Not a complete security analysis or proof of safety. No data uploaded.'
     };
     showReport(lastReport);
+    // Send only bounded, non-secret finding metadata to the on-page read-only assistant.
+    // No source snippets, file contents, file paths, or network requests are involved.
+    window.dispatchEvent(new CustomEvent('devshield:local-report', {
+      detail: {
+        schema: lastReport.schema,
+        mode: lastReport.mode,
+        generatedAt: lastReport.generatedAt,
+        filesReviewed: lastReport.filesReviewed,
+        incomplete: lastReport.incomplete,
+        skippedCount: lastReport.skipped.length,
+        findings: lastReport.findings.map(({ rule, severity, message, remediation }) => ({
+          rule, severity, message, remediation
+        }))
+      }
+    }));
   } catch {
     summaryBox.textContent = 'The local preview could not complete.';
     statusBox.textContent = 'No information was submitted to a server.';
@@ -218,6 +233,7 @@ resetButton.addEventListener('click', () => {
   fileBox.value = '';
   lastReport = null;
   showReport(null);
+  window.dispatchEvent(new CustomEvent('devshield:local-report', { detail: null }));
 });
 exportButton.addEventListener('click', () => {
   if (!lastReport) return;
